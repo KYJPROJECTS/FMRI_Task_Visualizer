@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualizador de Tareas fMRI</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>Visualizador de Tareas fMRI</h1>
+    <span id="version-tag" class="version-tag">v0.0.0</span>
+  </header>
+
+  <main class="app-main">
+
+    <section class="task-selector">
+      <label for="task-select">Selecciona la tarea:</label>
+      <select id="task-select">
+        <option value="" disabled selected>-- Elige una tarea --</option>
+        <option value="demo1">Tarea de prueba 1</option>
+        <option value="demo2">Tarea de prueba 2</option>
+        <option value="demo3">Tarea de prueba 3</option>
+      </select>
+    </section>
+
+    <section class="player-section">
+      <div id="youtube-player"></div>
+    </section>
+
+    <section class="controls">
+      <button id="btn-play-pause" disabled>▶ Reproducir</button>
+      <button id="btn-restart" disabled>⏮ Reiniciar</button>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>FMRI tasks</p>
+  </footer>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="js/script.js"></script>
+</body>
+</html>
