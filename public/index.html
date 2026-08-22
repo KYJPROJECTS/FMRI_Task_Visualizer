@@ -25,13 +25,27 @@
       </select>
     </section>
 
-    <section class="player-section">
-      <div id="youtube-player"></div>
-    </section>
+    <section class="player-wrapper">
+      <div class="player-section" id="player-container">
+        <div id="youtube-player"></div>
 
-    <section class="controls">
-      <button id="btn-play-pause" disabled>▶ Reproducir</button>
-      <button id="btn-restart" disabled>⏮ Reiniciar</button>
+        <!-- Capa transparente: intercepta el mouse antes de que llegue al iframe de YouTube.
+             Esto evita que aparezcan los íconos de compartir, "ver más tarde", etc. -->
+        <div class="video-overlay" id="video-overlay"></div>
+
+        <!-- Nuestra barra de controles personalizada -->
+        <div class="custom-controls" id="custom-controls">
+          <div class="progress-bar-container" id="progress-bar-container">
+            <div class="progress-bar-filled" id="progress-bar-filled"></div>
+          </div>
+          <div class="controls-buttons">
+            <button id="btn-play-pause" class="control-btn" disabled title="Reproducir/Pausar">▶</button>
+            <button id="btn-rewind" class="control-btn" disabled title="Retroceder 10s">⏪ 10s</button>
+            <button id="btn-restart" class="control-btn" disabled title="Reiniciar">⏮</button>
+            <button id="btn-fullscreen" class="control-btn" disabled title="Pantalla completa">⛶</button>
+          </div>
+        </div>
+      </div>
     </section>
 
   </main>
