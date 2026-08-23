@@ -5,7 +5,6 @@ Herramienta web para organizar y reproducir, desde el computador de la sala de c
 Reemplaza el flujo actual de transportar un computador hasta el resonador para transmitir los paradigmas, todo corre directamente desde el navegador del equipo ya instalado en la sala.
 
 ![Status](https://img.shields.io/badge/status-en%20desarrollo-yellow)
-![Fase](https://img.shields.io/badge/fase-1-blue)
 
 ---
 
@@ -48,7 +47,7 @@ Este proyecto es intencionalmente simple: **HTML, CSS y JavaScript puro**, sin f
 ```
 FMRI_Task_Visualizer/
 ├── private/  # Configuración sensible
-├── public/   # Raíz para GitHub Pages
+├── docs/   # Raíz para GitHub Pages
 │   ├── index.html
 │   ├── css/
 │   │   └── style.css
@@ -65,7 +64,7 @@ FMRI_Task_Visualizer/
 
 ### Agregar una tarea nueva
 
-Edita `public/data/tasks.json` — no requiere tocar el código:
+Edita `docs/data/tasks.json` — no requiere tocar el código:
 
 ```json
 {
@@ -86,11 +85,11 @@ Este proyecto **no puede abrirse directamente con doble clic** (`file://`) por r
 
 **Opción A — VS Code + Live Server (recomendada)**
 1. Instala la extensión **Live Server**.
-2. Clic derecho sobre `public/index.html` → **Open with Live Server**.
+2. Clic derecho sobre `docs/index.html` → **Open with Live Server**.
 
 **Opción B — Terminal con Python**
 ```bash
-cd public
+cd docs
 python -m http.server 8000
 ```
 Luego abre `http://localhost:8000`.
@@ -121,4 +120,4 @@ git push -u origin feature/nombre-descriptivo
 
 ## Autores
 
-Desarrollado por el equipo de imágenes diagnósticas para uso interno en sala de control de resonancia magnética.
+Desarrollado por el equipo de imágenes diagnósticas para uso interno.
