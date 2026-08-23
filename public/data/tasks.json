@@ -1,0 +1,22 @@
+{
+    "tasks": [
+        {
+            "id": "motor",
+            "title": "Tarea motora unilateral",
+            "youtubeId": "yC7H8IZYjqE",
+            "duration": "03:30"
+        },
+        {
+            "id": "lenguaje_historia",
+            "title": "Tarea lenguaje historia",
+            "youtubeId": "A_Nrz0JfG8w",
+            "duration": "02:30"
+        },
+        {
+            "id": "viso_verbal",
+            "title": "Tarea viso verbal",
+            "youtubeId": "hBIB5hfNG5s",
+            "duration": "04:30"
+        }
+    ]
+}
