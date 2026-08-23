@@ -1,60 +1,103 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visualizador de Tareas fMRI</title>
+  <title>FMRI Assistant</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
   <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
 
-  <header class="app-header">
-    <h1>Visualizador de Tareas fMRI</h1>
-    <span id="version-tag" class="version-tag">v0.0.0</span>
-  </header>
+  <nav class="navbar">
+    <div class="nav-left">
+      <a href="#" id="nav-brand" class="nav-brand">
+        <img src="assets/logo.png" alt="Logo FMRI Assistant" class="nav-logo">
+        FMRI ASSISTANT
+      </a>
+      <a href="#" id="nav-run-session" class="nav-link">New Session</a>
+      <a href="#" id="nav-research" class="nav-link">Research</a>
+    </div>
+  </nav>
 
-  <main class="app-main">
+  <!-- ================= HOME ================= -->
+  <section id="view-home" class="view">
+    <div class="hero">
 
-    <section class="task-selector">
-      <label for="task-select">Selecciona la tarea:</label>
-      <select id="task-select">
-        <option value="" disabled selected>-- Elige una tarea --</option>
-        <option value="demo1">Tarea de prueba 1</option>
-        <option value="demo2">Tarea de prueba 2</option>
-        <option value="demo3">Tarea de prueba 3</option>
-      </select>
-    </section>
+      <h1>FMRI Tasks Assistant</h1>
+      <p>
+        This tool lets you organize and play, from the scanner control room computer, the videos
+        of the paradigms the patient must perform during a functional MRI study. Select the tasks
+        to include in the session, order them by dragging, and play them with controls designed
+        for real-time clinical use.
+      </p>
+      <button id="btn-go-run-session" class="btn-primary">Start a session</button>
+    </div>
+  </section>
 
-    <section class="player-wrapper">
-      <div class="player-section" id="player-container">
-        <div id="youtube-player"></div>
+  <!-- ============== NEW SESSION ============== -->
+  <section id="view-run-session" class="view" hidden>
+    <div class="session-layout">
 
-        <!-- Capa transparente: intercepta el mouse antes de que llegue al iframe de YouTube.
-             Esto evita que aparezcan los íconos de compartir, "ver más tarde", etc. -->
-        <div class="video-overlay" id="video-overlay"></div>
+      <div class="panel player-panel">
+        <div class="now-playing" id="now-playing" hidden>
+          <strong id="current-task-name">—</strong>
+          <span id="progress-label"></span>
+        </div>
 
-        <!-- Nuestra barra de controles personalizada -->
-        <div class="custom-controls" id="custom-controls">
-          <div class="progress-bar-container" id="progress-bar-container">
-            <div class="progress-bar-filled" id="progress-bar-filled"></div>
+        <div class="player-section" id="player-container">
+          <div id="youtube-player"></div>
+          <div class="video-overlay" id="video-overlay"></div>
+
+          <div class="rest-screen" id="rest-screen" hidden>
+            <button id="btn-continue-next" class="btn-rest-next">Next task</button>
           </div>
-          <div class="controls-buttons">
-            <button id="btn-play-pause" class="control-btn" disabled title="Reproducir/Pausar">▶</button>
-            <button id="btn-rewind" class="control-btn" disabled title="Retroceder 10s">⏪ 10s</button>
-            <button id="btn-restart" class="control-btn" disabled title="Reiniciar">⏮</button>
-            <button id="btn-fullscreen" class="control-btn" disabled title="Pantalla completa">⛶</button>
+
+          <div class="custom-controls" id="custom-controls">
+            <div class="progress-bar-container" id="progress-bar-container">
+              <div class="progress-bar-filled" id="progress-bar-filled"></div>
+            </div>
+            <div class="controls-buttons">
+              <button id="btn-prev-task" class="control-btn" disabled title="Previous task">⏮</button>
+              <button id="btn-rewind" class="control-btn" disabled title="Rewind 10s">⏮ 10s</button>
+              <button id="btn-play-pause" class="control-btn" disabled title="Play/Pause (spacebar)">▶</button>
+              <button id="btn-forward" class="control-btn" disabled title="Forward 10s">10s ⏭</button>
+              <button id="btn-restart" class="control-btn" disabled title="Restart video">⟲</button>
+              <button id="btn-next-task" class="control-btn" disabled title="Next task">⏭</button>
+              <button id="btn-fullscreen" class="control-btn" disabled title="Fullscreen">⛶</button>
+            </div>
           </div>
         </div>
       </div>
-    </section>
 
-  </main>
+      <div class="panel builder-panel">
+        <button id="btn-toggle-tasks" class="btn-secondary">Show available tasks</button>
 
-  <footer class="app-footer">
-    <p>FMRI tasks</p>
-  </footer>
+        <div id="available-tasks-panel" class="tasks-dropdown" hidden>
+          <ul id="available-tasks-list" class="task-list"></ul>
+        </div>
+
+        <h3>Session sequence</h3>
+        <ol id="sequence-list" class="sequence-list"></ol>
+        <p id="sequence-empty-hint" class="hint">Drag tasks here to build the sequence. The first one loads
+          automatically.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============== RESEARCH ============== -->
+  <section id="view-research" class="view" hidden>
+    <div class="hero">
+      <h1>Research</h1>
+      <p>Coming soon</p>
+    </div>
+  </section>
 
   <script src="https://www.youtube.com/iframe_api"></script>
   <script src="js/script.js"></script>
 </body>
+
 </html>
