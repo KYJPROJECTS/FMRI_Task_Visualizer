@@ -1,22 +1,34 @@
 {
     "tasks": [
         {
-            "id": "motor",
-            "title": "Tarea motora unilateral",
-            "youtubeId": "yC7H8IZYjqE",
-            "duration": "03:30"
+            "id": "LH",
+            "title": "Tarea Lenguaje Historia",
+            "youtubeId": "itqLOKkPK7o",
+            "duration": "03:21"
         },
         {
-            "id": "lenguaje_historia",
-            "title": "Tarea lenguaje historia",
-            "youtubeId": "A_Nrz0JfG8w",
-            "duration": "02:30"
+            "id": "VISOVERBAL",
+            "title": "Tarea Viso Verbal",
+            "youtubeId": "GAqq7h9AbYg",
+            "duration": "05:00"
         },
         {
-            "id": "viso_verbal",
-            "title": "Tarea viso verbal",
-            "youtubeId": "hBIB5hfNG5s",
-            "duration": "04:30"
+            "id": "MENV",
+            "title": "Tarea Memoria Episodica No Verbal",
+            "youtubeId": "kwSVqELYZbY",
+            "duration": "03:23"
+        },
+        {
+            "id": "MEV",
+            "title": "Tarea Memoria Episodica Verbal",
+            "youtubeId": "p3H3GebNDHo",
+            "duration": "02:01"
+        },
+        {
+            "id": "MOTORUNI",
+            "title": "Tarea Motor Unilateral",
+            "youtubeId": "RTsc1ZFW7Ng",
+            "duration": "03:23"
         }
     ]
 }
