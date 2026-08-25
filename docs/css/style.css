@@ -65,6 +65,11 @@ body {
   opacity: 0.85;
 }
 
+.nav-link.active {
+  opacity: 1;
+  text-decoration: underline;
+}
+
 .nav-link:hover {
   opacity: 1;
   text-decoration: underline;

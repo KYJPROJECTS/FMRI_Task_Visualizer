@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nueva sesión — FMRI Assistant</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="index.html" class="nav-brand">
+                <img src="assets/logo.png" alt="Logo de FMRI Assistant" class="nav-logo">
+                FMRI ASSISTANT
+            </a>
+            <a href="nueva-sesion.html" class="nav-link active">Nueva sesión</a>
+            <a href="investigacion.html" class="nav-link">Investigación</a>
+        </div>
+    </nav>
+
+    <section class="view">
+        <div class="session-layout">
+
+            <div class="panel player-panel">
+                <div class="now-playing" id="now-playing" hidden>
+                    <strong id="current-task-name">—</strong>
+                    <span id="progress-label"></span>
+                </div>
+
+                <div class="player-section" id="player-container">
+                    <div id="youtube-player"></div>
+                    <div class="video-overlay" id="video-overlay"></div>
+
+                    <div class="rest-screen" id="rest-screen" hidden>
+                        <button id="btn-continue-next" class="btn-rest-next">Siguiente tarea</button>
+                    </div>
+
+                    <div class="custom-controls" id="custom-controls">
+                        <div class="progress-bar-container" id="progress-bar-container">
+                            <div class="progress-bar-filled" id="progress-bar-filled"></div>
+                        </div>
+                        <div class="controls-buttons">
+                            <button id="btn-prev-task" class="control-btn" disabled title="Tarea anterior">⏮</button>
+                            <button id="btn-rewind" class="control-btn" disabled title="Retroceder 10s">⏮ 10s</button>
+                            <button id="btn-play-pause" class="control-btn" disabled
+                                title="Reproducir/Pausar (barra espaciadora)">▶</button>
+                            <button id="btn-forward" class="control-btn" disabled title="Adelantar 10s">10s ⏭</button>
+                            <button id="btn-restart" class="control-btn" disabled title="Reiniciar video">⟲</button>
+                            <button id="btn-next-task" class="control-btn" disabled title="Siguiente tarea">⏭</button>
+                            <button id="btn-fullscreen" class="control-btn" disabled
+                                title="Pantalla completa">⛶</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel builder-panel">
+                <button id="btn-toggle-tasks" class="btn-secondary">Mostrar tareas disponibles</button>
+
+                <div id="available-tasks-panel" class="tasks-dropdown" hidden>
+                    <ul id="available-tasks-list" class="task-list"></ul>
+                </div>
+
+                <h3>Secuencia de la sesión</h3>
+                <ol id="sequence-list" class="sequence-list"></ol>
+                <p id="sequence-empty-hint" class="hint">Arrastra tareas aquí para armar la secuencia. La primera se
+                    carga
+                    automáticamente.</p>
+            </div>
+
+        </div>
+    </section>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="js/session.js"></script>
+</body>
+
+</html>
