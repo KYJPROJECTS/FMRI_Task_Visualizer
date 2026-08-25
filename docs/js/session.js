@@ -10,15 +10,6 @@ let hideControlsTimeout;
 let isDraggingProgress = false;
 
 // ================== DOM ==================
-const navBrand = document.getElementById("nav-brand");
-const navRunSession = document.getElementById("nav-run-session");
-const navResearch = document.getElementById("nav-research");
-const btnGoRunSession = document.getElementById("btn-go-run-session");
-
-const viewHome = document.getElementById("view-home");
-const viewRunSession = document.getElementById("view-run-session");
-const viewResearch = document.getElementById("view-research");
-
 const btnToggleTasks = document.getElementById("btn-toggle-tasks");
 const availableTasksPanel = document.getElementById("available-tasks-panel");
 const availableTasksList = document.getElementById("available-tasks-list");
@@ -45,17 +36,6 @@ const btnNextTask = document.getElementById("btn-next-task");
 
 const progressBarContainer = document.getElementById("progress-bar-container");
 const progressBarFilled = document.getElementById("progress-bar-filled");
-
-// ================== NAVEGACIÓN ENTRE SECCIONES ==================
-function showView(view) {
-  viewHome.hidden = view !== "home";
-  viewRunSession.hidden = view !== "run-session";
-  viewResearch.hidden = view !== "research";
-}
-navBrand.addEventListener("click", (e) => { e.preventDefault(); showView("home"); });
-navRunSession.addEventListener("click", (e) => { e.preventDefault(); showView("run-session"); });
-navResearch.addEventListener("click", (e) => { e.preventDefault(); showView("research"); });
-btnGoRunSession.addEventListener("click", () => showView("run-session"));
 
 // ================== UTILIDADES ==================
 function whenReady(fn) {
