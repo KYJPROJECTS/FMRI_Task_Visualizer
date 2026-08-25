@@ -80,30 +80,56 @@ btnToggleTasks.addEventListener("click", () => {
   btnToggleTasks.textContent = isHidden ? "Ocultar tareas disponibles" : "Mostrar tareas disponibles";
 });
 
+// ================== LISTA DE TAREAS DISPONIBLES ==================
 function renderAvailableTasks() {
   availableTasksList.innerHTML = "";
   allTasks.forEach((task) => {
     const li = document.createElement("li");
-    li.draggable = true;
     li.dataset.taskId = task.id;
-    li.innerHTML = `<span class="task-title">${task.title}</span><span class="task-duration">${task.duration}</span>`;
+    li.innerHTML = `
+      <span class="task-title">${task.title}</span>
+      <span class="task-duration">${task.duration}</span>
+      <button class="task-action-btn btn-add" type="button" title="Agregar a la secuencia">+</button>
+    `;
+
     li.addEventListener("dragstart", (e) => {
+      if (sequence.includes(task.id)) { e.preventDefault(); return; }
       e.dataTransfer.setData("text/plain", JSON.stringify({ type: "new", taskId: task.id }));
     });
+
+    li.querySelector(".task-action-btn").addEventListener("click", () => addTaskToSequence(task.id));
+
     availableTasksList.appendChild(li);
   });
   refreshAvailableTasksState();
 }
 
+// Oculta de la lista disponible cualquier tarea que ya esté en la secuencia.
 function refreshAvailableTasksState() {
   [...availableTasksList.children].forEach((li) => {
-    const inSequence = sequence.includes(li.dataset.taskId);
-    li.classList.toggle("added", inSequence);
+    const taskId = li.dataset.taskId;
+    const inSequence = sequence.includes(taskId);
+    li.hidden = inSequence;
     li.draggable = !inSequence;
   });
 }
 
-// ================== SECUENCIA (drag & drop) ==================
+// ================== AGREGAR / QUITAR DE LA SECUENCIA ==================
+function addTaskToSequence(taskId) {
+  if (sequence.includes(taskId)) return;
+  const li = createSequenceItem(taskId);
+  sequenceList.appendChild(li);
+  syncSequenceFromDOM();
+}
+
+function removeTaskFromSequence(taskId) {
+  if (isTaskCurrentlyPlaying(taskId)) return; // no se puede quitar lo que se está reproduciendo
+  const li = sequenceList.querySelector(`.sequence-item[data-task-id="${taskId}"]`);
+  if (li) li.remove();
+  syncSequenceFromDOM();
+}
+
+// ================== SECUENCIA (drag & drop + botones) ==================
 function createSequenceItem(taskId) {
   const task = allTasks.find((t) => t.id === taskId);
   const li = document.createElement("li");
@@ -114,7 +140,11 @@ function createSequenceItem(taskId) {
     <span class="drag-handle">⠿</span>
     <span class="task-title">${task.title}</span>
     <span class="task-duration">${task.duration}</span>
-    <button class="remove-btn" title="Quitar">✕</button>
+    <div class="move-buttons">
+      <button class="btn-move btn-move-up" type="button" title="Subir">▲</button>
+      <button class="btn-move btn-move-down" type="button" title="Bajar">▼</button>
+    </div>
+    <button class="task-action-btn btn-remove" type="button" title="Quitar">✕</button>
   `;
 
   li.addEventListener("dragstart", (e) => {
@@ -126,13 +156,23 @@ function createSequenceItem(taskId) {
     li.classList.remove("dragging");
     syncSequenceFromDOM();
   });
-  li.querySelector(".remove-btn").addEventListener("click", () => {
-    if (isTaskCurrentlyPlaying(taskId)) return; // no se puede quitar lo que se está reproduciendo
-    li.remove();
-    syncSequenceFromDOM();
-  });
+
+  li.querySelector(".btn-move-up").addEventListener("click", () => moveSequenceItem(li, -1));
+  li.querySelector(".btn-move-down").addEventListener("click", () => moveSequenceItem(li, 1));
+  li.querySelector(".task-action-btn").addEventListener("click", () => removeTaskFromSequence(taskId));
 
   return li;
+}
+
+// Mueve un <li> un puesto arriba (-1) o abajo (+1) dentro de la lista.
+function moveSequenceItem(li, direction) {
+  if (isTaskCurrentlyPlaying(li.dataset.taskId)) return;
+  if (direction === -1 && li.previousElementSibling) {
+    sequenceList.insertBefore(li, li.previousElementSibling);
+  } else if (direction === 1 && li.nextElementSibling) {
+    sequenceList.insertBefore(li.nextElementSibling, li);
+  }
+  syncSequenceFromDOM();
 }
 
 function getDragAfterElement(container, y) {
@@ -193,22 +233,32 @@ function syncSequenceFromDOM() {
   if (!currentTaskId || !sequence.includes(currentTaskId)) {
     loadTask(sequence[0]); // solo recarga si no había nada activo, o si quitaste la que estaba activa
   } else {
-    updateNowPlayingLabel(); // sigue siendo el mismo video, solo pudo cambiar su posición (ej. "2/3")
+    updateNowPlayingLabel();
     updateNavButtonsState();
   }
-  updateSequenceDraggability();
+  updateSequenceUI();
 }
 
 function isTaskCurrentlyPlaying(taskId) {
   return isPlayerReady && taskId === currentTaskId && player.getPlayerState() === YT.PlayerState.PLAYING;
 }
 
-function updateSequenceDraggability() {
-  [...sequenceList.querySelectorAll(".sequence-item")].forEach((li) => {
-    const locked = isTaskCurrentlyPlaying(li.dataset.taskId);
+// Sincroniza candados, flechas y botón de quitar de cada tarea de la secuencia
+// según su posición y si está en reproducción; también refresca la lista disponible.
+function updateSequenceUI() {
+  const items = [...sequenceList.querySelectorAll(".sequence-item")];
+  items.forEach((li, index) => {
+    const taskId = li.dataset.taskId;
+    const locked = isTaskCurrentlyPlaying(taskId);
+
     li.draggable = !locked;
     li.classList.toggle("locked", locked);
+
+    li.querySelector(".btn-move-up").disabled = locked || index === 0;
+    li.querySelector(".btn-move-down").disabled = locked || index === items.length - 1;
+    li.querySelector(".task-action-btn").disabled = locked;
   });
+  refreshAvailableTasksState();
 }
 
 function loadTask(taskId) {
@@ -219,7 +269,7 @@ function loadTask(taskId) {
   updateNowPlayingLabel();
   updateNavButtonsState();
   [btnPlayPause, btnRewind, btnForward, btnRestart, btnFullscreen].forEach((b) => (b.disabled = false));
-  updateSequenceDraggability();
+  updateSequenceUI();
 }
 
 function updateNowPlayingLabel() {
@@ -283,7 +333,7 @@ function onPlayerError(event) {
 }
 
 function onPlayerStateChange(event) {
-  updateSequenceDraggability();
+  updateSequenceUI();
 
   if (event.data === YT.PlayerState.PLAYING) {
     btnPlayPause.textContent = "⏸";
@@ -315,7 +365,6 @@ function togglePlayPause() {
 btnPlayPause.addEventListener("click", whenReady(() => { togglePlayPause(); btnPlayPause.blur(); }));
 videoOverlay.addEventListener("click", whenReady(togglePlayPause));
 
-// Espacio: control exclusivo de play/pause, sin importar qué elemento tenga el foco
 document.addEventListener("keydown", (event) => {
   if (event.code !== "Space") return;
   const tag = document.activeElement.tagName;
@@ -333,7 +382,6 @@ btnRewind.addEventListener("click", whenReady(() => {
 btnForward.addEventListener("click", whenReady(() => {
   const duration = player.getDuration();
   const target = player.getCurrentTime() + 10;
-  // Si el video aún no reporta duración confiable (recién cargado), adelanta sin límite superior.
   player.seekTo(duration > 0 ? Math.min(duration, target) : target, true);
   btnForward.blur();
 }));
@@ -371,7 +419,7 @@ document.addEventListener("mouseup", () => {
 function startProgressTracking() {
   stopProgressTracking();
   progressInterval = setInterval(() => {
-    if (!isPlayerReady || isDraggingProgress) return; // no pelear con el usuario mientras arrastra
+    if (!isPlayerReady || isDraggingProgress) return;
     const current = player.getCurrentTime();
     const duration = player.getDuration();
     if (duration > 0) progressBarFilled.style.width = (current / duration) * 100 + "%";
