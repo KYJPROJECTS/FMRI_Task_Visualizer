@@ -33,7 +33,6 @@ const playerContainer = document.getElementById("player-container");
 const videoOverlay = document.getElementById("video-overlay");
 const customControls = document.getElementById("custom-controls");
 const restScreen = document.getElementById("rest-screen");
-const restScreenTitle = document.getElementById("rest-screen-title");
 const btnContinueNext = document.getElementById("btn-continue-next");
 
 const btnPlayPause = document.getElementById("btn-play-pause");
@@ -78,7 +77,7 @@ fetch("data/tasks.json")
 btnToggleTasks.addEventListener("click", () => {
   const isHidden = availableTasksPanel.hidden;
   availableTasksPanel.hidden = !isHidden;
-  btnToggleTasks.textContent = isHidden ? "Hide available tasks" : "Show available tasks";
+  btnToggleTasks.textContent = isHidden ? "Ocultar tareas disponibles" : "Mostrar tareas disponibles";
 });
 
 function renderAvailableTasks() {
@@ -280,7 +279,7 @@ function onPlayerReady() {
 
 function onPlayerError(event) {
   console.error("YouTube error, code:", event.data);
-  currentTaskName.textContent = "⚠ Error loading video (code " + event.data + ")";
+  currentTaskName.textContent = "⚠ Error al cargar el video (código " + event.data + ")";
 }
 
 function onPlayerStateChange(event) {

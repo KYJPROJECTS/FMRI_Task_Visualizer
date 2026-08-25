@@ -14,11 +14,11 @@
   <nav class="navbar">
     <div class="nav-left">
       <a href="#" id="nav-brand" class="nav-brand">
-        <img src="assets/logo.png" alt="Logo FMRI Assistant" class="nav-logo">
+        <img src="assets/logo.png" alt="Logo de FMRI Assistant" class="nav-logo">
         FMRI ASSISTANT
       </a>
-      <a href="#" id="nav-run-session" class="nav-link">New Session</a>
-      <a href="#" id="nav-research" class="nav-link">Research</a>
+      <a href="#" id="nav-run-session" class="nav-link">Nueva sesión</a>
+      <a href="#" id="nav-research" class="nav-link">Investigación</a>
     </div>
   </nav>
 
@@ -28,12 +28,12 @@
 
       <h1>FMRI Tasks Assistant</h1>
       <p>
-        This tool lets you organize and play, from the scanner control room computer, the videos
-        of the paradigms the patient must perform during a functional MRI study. Select the tasks
-        to include in the session, order them by dragging, and play them with controls designed
-        for real-time clinical use.
+        Esta herramienta permite organizar y reproducir, desde el computador de la sala de control
+        del resonador, los videos de los paradigmas que el paciente debe realizar durante un estudio
+        de resonancia magnética funcional. Selecciona las tareas que va a incluir la sesión, ordénalas
+        arrastrándolas, y reprodúcelas con controles diseñados para uso clínico en tiempo real.
       </p>
-      <button id="btn-go-run-session" class="btn-primary">Start a session</button>
+      <button id="btn-go-run-session" class="btn-primary">Iniciar una sesión</button>
     </div>
   </section>
 
@@ -52,7 +52,7 @@
           <div class="video-overlay" id="video-overlay"></div>
 
           <div class="rest-screen" id="rest-screen" hidden>
-            <button id="btn-continue-next" class="btn-rest-next">Next task</button>
+            <button id="btn-continue-next" class="btn-rest-next">Siguiente tarea</button>
           </div>
 
           <div class="custom-controls" id="custom-controls">
@@ -60,29 +60,30 @@
               <div class="progress-bar-filled" id="progress-bar-filled"></div>
             </div>
             <div class="controls-buttons">
-              <button id="btn-prev-task" class="control-btn" disabled title="Previous task">⏮</button>
-              <button id="btn-rewind" class="control-btn" disabled title="Rewind 10s">⏮ 10s</button>
-              <button id="btn-play-pause" class="control-btn" disabled title="Play/Pause (spacebar)">▶</button>
-              <button id="btn-forward" class="control-btn" disabled title="Forward 10s">10s ⏭</button>
-              <button id="btn-restart" class="control-btn" disabled title="Restart video">⟲</button>
-              <button id="btn-next-task" class="control-btn" disabled title="Next task">⏭</button>
-              <button id="btn-fullscreen" class="control-btn" disabled title="Fullscreen">⛶</button>
+              <button id="btn-prev-task" class="control-btn" disabled title="Tarea anterior">⏮</button>
+              <button id="btn-rewind" class="control-btn" disabled title="Retroceder 10s">⏮ 10s</button>
+              <button id="btn-play-pause" class="control-btn" disabled
+                title="Reproducir/Pausar (barra espaciadora)">▶</button>
+              <button id="btn-forward" class="control-btn" disabled title="Adelantar 10s">10s ⏭</button>
+              <button id="btn-restart" class="control-btn" disabled title="Reiniciar video">⟲</button>
+              <button id="btn-next-task" class="control-btn" disabled title="Siguiente tarea">⏭</button>
+              <button id="btn-fullscreen" class="control-btn" disabled title="Pantalla completa">⛶</button>
             </div>
           </div>
         </div>
       </div>
 
       <div class="panel builder-panel">
-        <button id="btn-toggle-tasks" class="btn-secondary">Show available tasks</button>
+        <button id="btn-toggle-tasks" class="btn-secondary">Mostrar tareas disponibles</button>
 
         <div id="available-tasks-panel" class="tasks-dropdown" hidden>
           <ul id="available-tasks-list" class="task-list"></ul>
         </div>
 
-        <h3>Session sequence</h3>
+        <h3>Secuencia de la sesión</h3>
         <ol id="sequence-list" class="sequence-list"></ol>
-        <p id="sequence-empty-hint" class="hint">Drag tasks here to build the sequence. The first one loads
-          automatically.</p>
+        <p id="sequence-empty-hint" class="hint">Arrastra tareas aquí para armar la secuencia. La primera se carga
+          automáticamente.</p>
       </div>
 
     </div>
@@ -91,8 +92,8 @@
   <!-- ============== RESEARCH ============== -->
   <section id="view-research" class="view" hidden>
     <div class="hero">
-      <h1>Research</h1>
-      <p>Coming soon</p>
+      <h1>Investigación</h1>
+      <p>Próximamente</p>
     </div>
   </section>
 
