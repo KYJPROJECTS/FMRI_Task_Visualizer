@@ -1,58 +1,26 @@
 {
   "tasks": [
     {
+      "id": "lenguaje-historia",
+      "title": "Lenguaje - Historia",
+      "prefijo": "LH",
+      "duracionBloque": 20,
+      "extension": "jpg",
+      "bloques": [
+        { "cantidadImagenes": 5 },
+        { "cantidadImagenes": 5 },
+        { "cantidadImagenes": 5 }
+      ]
+    },
+    {
       "id": "memoria-episodica",
       "title": "Memoria Episódica Verbal",
+      "prefijo": "MEV",
       "duracionBloque": 20,
+      "extension": "jpg",
       "bloques": [
-        {
-          "imagenesReposo": [
-            "https://picsum.photos/seed/b1r1/900/500",
-            "https://picsum.photos/seed/b1r2/900/500",
-            "https://picsum.photos/seed/b1r3/900/500",
-            "https://picsum.photos/seed/b1r4/900/500",
-            "https://picsum.photos/seed/b1r5/900/500"
-          ],
-          "imagenesActivacion": [
-            "https://picsum.photos/seed/b1a1/900/500",
-            "https://picsum.photos/seed/b1a2/900/500",
-            "https://picsum.photos/seed/b1a3/900/500",
-            "https://picsum.photos/seed/b1a4/900/500",
-            "https://picsum.photos/seed/b1a5/900/500"
-          ]
-        },
-        {
-          "imagenesReposo": [
-            "https://picsum.photos/seed/b2r1/900/500",
-            "https://picsum.photos/seed/b2r2/900/500",
-            "https://picsum.photos/seed/b2r3/900/500",
-            "https://picsum.photos/seed/b2r4/900/500",
-            "https://picsum.photos/seed/b2r5/900/500"
-          ],
-          "imagenesActivacion": [
-            "https://picsum.photos/seed/b2a1/900/500",
-            "https://picsum.photos/seed/b2a2/900/500",
-            "https://picsum.photos/seed/b2a3/900/500",
-            "https://picsum.photos/seed/b2a4/900/500",
-            "https://picsum.photos/seed/b2a5/900/500"
-          ]
-        },
-        {
-          "imagenesReposo": [
-            "https://picsum.photos/seed/b3r1/900/500",
-            "https://picsum.photos/seed/b3r2/900/500",
-            "https://picsum.photos/seed/b3r3/900/500",
-            "https://picsum.photos/seed/b3r4/900/500",
-            "https://picsum.photos/seed/b3r5/900/500"
-          ],
-          "imagenesActivacion": [
-            "https://picsum.photos/seed/b3a1/900/500",
-            "https://picsum.photos/seed/b3a2/900/500",
-            "https://picsum.photos/seed/b3a3/900/500",
-            "https://picsum.photos/seed/b3a4/900/500",
-            "https://picsum.photos/seed/b3a5/900/500"
-          ]
-        }
+        { "cantidadImagenes": 4 },
+        { "cantidadImagenes": 4 }
       ]
     }
   ]
