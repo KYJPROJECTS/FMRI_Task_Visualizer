@@ -1,34 +1,48 @@
 {
-    "tasks": [
-        {
-            "id": "LH",
-            "title": "Tarea Lenguaje Historia",
-            "youtubeId": "itqLOKkPK7o",
-            "duration": "03:21"
+  "tasks": [
+    {
+      "id": "motor",
+      "title": "Tarea motora unilateral",
+      "youtubeId": "RTsc1ZFW7Ng",
+      "explainerYoutubeId": "gbKXa9-hnsQ",
+      "duration": "03:23"
+    },
+    {
+      "id": "lenguaje_historia",
+      "title": "Tarea de lenguaje: historia",
+      "youtubeId": "itqLOKkPK7o",
+      "explainerYoutubeId": "OpRlISuAU80",
+      "duration": "03:21"
+    },
+    {
+      "id": "viso_verbal",
+      "title": "Tarea de lenguaje visoverbal",
+      "youtubeId": "GAqq7h9AbYg",
+      "explainerYoutubeId": "Vfw-Z2Mnh5E",
+      "duration": "05:00"
+    },
+    {
+      "id": "mev",
+      "title": "Tarea de memoria episódica verbal",
+      "youtubeId": "p3H3GebNDHo",
+      "explainerYoutubeId": "alqz9QjoMs0",
+      "duration": "02:01"
+    },
+    {
+      "id": "menv",
+      "title": "Tarea de memoria episódica no verbal",
+      "variants": {
+        "diestro": {
+          "youtubeId": "kwSVqELYZbY",
+          "explainerYoutubeId": "pw1aiczNzLQ",
+          "duration": "03:23"
         },
-        {
-            "id": "LVV",
-            "title": "Tarea Lenguaje Visoverbal",
-            "youtubeId": "GAqq7h9AbYg",
-            "duration": "05:00"
-        },
-        {
-            "id": "MENV",
-            "title": "Tarea Memoria Episodica No Verbal",
-            "youtubeId": "kwSVqELYZbY",
-            "duration": "03:23"
-        },
-        {
-            "id": "MEV",
-            "title": "Tarea Memoria Episodica Verbal",
-            "youtubeId": "p3H3GebNDHo",
-            "duration": "02:01"
-        },
-        {
-            "id": "MOTORUNI",
-            "title": "Tarea Motor Unilateral",
-            "youtubeId": "RTsc1ZFW7Ng",
-            "duration": "03:23"
+        "zurdo": {
+          "youtubeId": "kwSVqELYZbY",
+          "explainerYoutubeId": "BJApGf3vDlI",
+          "duration": "03:23"
         }
-    ]
+      }
+    }
+  ]
 }
