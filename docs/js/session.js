@@ -5,6 +5,7 @@ let currentTaskId = null;
 let currentSegment = "main"; // "explainer" | "main" — qué video de la tarea activa está sonando
 let explainersEnabled = true;
 let handedness = "diestro";
+let language = "es";
 
 let player;
 let isPlayerReady = false;
@@ -21,6 +22,7 @@ const sequenceEmptyHint = document.getElementById("sequence-empty-hint");
 
 const toggleExplainers = document.getElementById("toggle-explainers");
 const handednessButtons = document.querySelectorAll(".handedness-btn");
+const languageButtons = document.querySelectorAll(".language-btn");
 
 const nowPlaying = document.getElementById("now-playing");
 const currentTaskName = document.getElementById("current-task-name");
@@ -49,24 +51,19 @@ function whenReady(fn) {
 }
 
 // Devuelve título, duración, youtubeId y explainerYoutubeId de una tarea,
-// resolviendo la variante de lateralidad si la tarea la requiere (ej. MENV).
+// resolviendo lateralidad (ej. MENV) e idioma.
 function resolveTaskDef(taskId) {
   const task = allTasks.find((t) => t.id === taskId);
   if (!task) return null;
-  if (task.variants) {
-    const variant = task.variants[handedness] || task.variants.diestro;
-    return {
-      title: task.title,
-      duration: variant.duration,
-      youtubeId: variant.youtubeId,
-      explainerYoutubeId: variant.explainerYoutubeId,
-    };
-  }
+
+  const base = task.variants ? (task.variants[handedness] || task.variants.diestro) : task;
+  const langData = base[language] || base.es;
+
   return {
     title: task.title,
-    duration: task.duration,
-    youtubeId: task.youtubeId,
-    explainerYoutubeId: task.explainerYoutubeId,
+    duration: langData.duration,
+    youtubeId: langData.youtubeId,
+    explainerYoutubeId: langData.explainerYoutubeId,
   };
 }
 
@@ -102,27 +99,41 @@ handednessButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     handedness = btn.dataset.hand;
     handednessButtons.forEach((b) => b.classList.toggle("active", b === btn));
-    updateHandednessDependentDisplays();
-
-    const menvTask = allTasks.find((t) => t.variants);
-    if (menvTask && currentTaskId === menvTask.id && !isTaskCurrentlyPlaying(currentTaskId)) {
-      loadTask(currentTaskId);
-    }
+    refreshAllDurations();
+    reloadIfPausedAndAffected();
   });
 });
 
-// Actualiza la duración mostrada de la tarea con variantes (MENV) en ambas listas,
-// sin reconstruir el resto del DOM.
-function updateHandednessDependentDisplays() {
-  const menvTask = allTasks.find((t) => t.variants);
-  if (!menvTask) return;
-  const def = resolveTaskDef(menvTask.id);
+// ================== SELECTOR DE IDIOMA ==================
+languageButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    language = btn.dataset.lang;
+    languageButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    refreshAllDurations();
+    reloadIfPausedAndAffected();
+  });
+});
 
-  const availDuration = availableTasksList.querySelector(`li[data-task-id="${menvTask.id}"] .task-duration`);
-  if (availDuration) availDuration.textContent = def.duration;
+// Recarga la tarea actual si está en pausa (nunca interrumpe una que se está reproduciendo).
+function reloadIfPausedAndAffected() {
+  if (currentTaskId && !isTaskCurrentlyPlaying(currentTaskId)) {
+    loadTask(currentTaskId);
+  }
+}
 
-  const seqDuration = sequenceList.querySelector(`.sequence-item[data-task-id="${menvTask.id}"] .task-duration`);
-  if (seqDuration) seqDuration.textContent = def.duration;
+// Actualiza la duración mostrada de TODAS las tareas en ambas listas,
+// sin reconstruir el resto del DOM. El idioma puede cambiar la duración
+// de cualquier tarea; la lateralidad solo afecta a la que tiene variantes (MENV).
+function refreshAllDurations() {
+  allTasks.forEach((task) => {
+    const def = resolveTaskDef(task.id);
+
+    const availDuration = availableTasksList.querySelector(`li[data-task-id="${task.id}"] .task-duration`);
+    if (availDuration) availDuration.textContent = def.duration;
+
+    const seqDuration = sequenceList.querySelector(`.sequence-item[data-task-id="${task.id}"] .task-duration`);
+    if (seqDuration) seqDuration.textContent = def.duration;
+  });
 }
 
 // ================== LISTA DE TAREAS DISPONIBLES ==================
