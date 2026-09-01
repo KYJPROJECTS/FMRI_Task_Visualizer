@@ -1,34 +1,90 @@
 {
-    "tasks": [
-        {
-            "id": "LH",
-            "title": "Tarea Lenguaje Historia",
-            "youtubeId": "itqLOKkPK7o",
-            "duration": "03:21"
-        },
-        {
-            "id": "LVV",
-            "title": "Tarea Lenguaje Visoverbal",
-            "youtubeId": "GAqq7h9AbYg",
-            "duration": "05:00"
-        },
-        {
-            "id": "MENV",
-            "title": "Tarea Memoria Episodica No Verbal",
+  "tasks": [
+    {
+      "id": "motor",
+      "title": "Tarea motora unilateral",
+      "es": {
+        "youtubeId": "RTsc1ZFW7Ng",
+        "explainerYoutubeId": "gbKXa9-hnsQ",
+        "duration": "03:23"
+      },
+      "en": {
+        "youtubeId": "ID_VIDEO_MOTOR_EN",
+        "explainerYoutubeId": "ID_EXPLICATIVO_MOTOR_EN",
+        "duration": "MM:SS"
+      }
+    },
+    {
+      "id": "lenguaje_historia",
+      "title": "Tarea de lenguaje: historia",
+      "es": {
+        "youtubeId": "itqLOKkPK7o",
+        "explainerYoutubeId": "OpRlISuAU80",
+        "duration": "03:21"
+      },
+      "en": {
+        "youtubeId": "ID_VIDEO_LH_EN",
+        "explainerYoutubeId": "ID_EXPLICATIVO_LH_EN",
+        "duration": "MM:SS"
+      }
+    },
+    {
+      "id": "viso_verbal",
+      "title": "Tarea de lenguaje visoverbal",
+      "es": {
+        "youtubeId": "GAqq7h9AbYg",
+        "explainerYoutubeId": "Vfw-Z2Mnh5E",
+        "duration": "05:00"
+      },
+      "en": {
+        "youtubeId": "ID_VIDEO_VISOVERBAL_EN",
+        "explainerYoutubeId": "ID_EXPLICATIVO_VISOVERBAL_EN",
+        "duration": "MM:SS"
+      }
+    },
+    {
+      "id": "mev",
+      "title": "Tarea de memoria episódica verbal",
+      "es": {
+        "youtubeId": "p3H3GebNDHo",
+        "explainerYoutubeId": "alqz9QjoMs0",
+        "duration": "02:01"
+      },
+      "en": {
+        "youtubeId": "ID_VIDEO_MEV_EN",
+        "explainerYoutubeId": "ID_EXPLICATIVO_MEV_EN",
+        "duration": "MM:SS"
+      }
+    },
+    {
+      "id": "menv",
+      "title": "Tarea de memoria episódica no verbal",
+      "variants": {
+        "diestro": {
+          "es": {
             "youtubeId": "kwSVqELYZbY",
+            "explainerYoutubeId": "pw1aiczNzLQ",
             "duration": "03:23"
+          },
+          "en": {
+            "youtubeId": "mL_nX5T2lTA",
+            "explainerYoutubeId": "mL_nX5T2lTA",
+            "duration": "MM:SS"
+          }
         },
-        {
-            "id": "MEV",
-            "title": "Tarea Memoria Episodica Verbal",
-            "youtubeId": "p3H3GebNDHo",
-            "duration": "02:01"
-        },
-        {
-            "id": "MOTORUNI",
-            "title": "Tarea Motor Unilateral",
-            "youtubeId": "RTsc1ZFW7Ng",
+        "zurdo": {
+          "es": {
+            "youtubeId": "kwSVqELYZbY",
+            "explainerYoutubeId": "BJApGf3vDlI",
             "duration": "03:23"
+          },
+          "en": {
+            "youtubeId": "ID_VIDEO_MENV_ZURDO_EN",
+            "explainerYoutubeId": "ID_EXPLICATIVO_MENV_ZURDO_EN",
+            "duration": "MM:SS"
+          }
         }
-    ]
+      }
+    }
+  ]
 }

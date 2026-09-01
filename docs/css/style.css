@@ -417,6 +417,86 @@ body {
   }
 }
 
+/* ---- Controles de sesión: explicativos y lateralidad ---- */
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.toggle-switch input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.handedness-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.handedness-label {
+  color: #556;
+}
+
+.handedness-btn {
+  border: 1px solid var(--color-primary);
+  background: white;
+  color: var(--color-primary);
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.handedness-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* ---- Selector del lenguaje ---- */
+
+.language-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.language-label {
+  color: #556;
+}
+
+.language-btn {
+  border: 1px solid var(--color-primary);
+  background: white;
+  color: var(--color-primary);
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.language-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
 /* ---- Página Investigación: escenario de imágenes ---- */
 
 .stage-image {

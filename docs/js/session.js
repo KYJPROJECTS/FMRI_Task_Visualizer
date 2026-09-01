@@ -2,6 +2,10 @@
 let allTasks = [];
 let sequence = [];
 let currentTaskId = null;
+let currentSegment = "main"; // "explainer" | "main" — qué video de la tarea activa está sonando
+let explainersEnabled = true;
+let handedness = "diestro";
+let language = "es";
 
 let player;
 let isPlayerReady = false;
@@ -15,6 +19,10 @@ const availableTasksPanel = document.getElementById("available-tasks-panel");
 const availableTasksList = document.getElementById("available-tasks-list");
 const sequenceList = document.getElementById("sequence-list");
 const sequenceEmptyHint = document.getElementById("sequence-empty-hint");
+
+const toggleExplainers = document.getElementById("toggle-explainers");
+const handednessButtons = document.querySelectorAll(".handedness-btn");
+const languageButtons = document.querySelectorAll(".language-btn");
 
 const nowPlaying = document.getElementById("now-playing");
 const currentTaskName = document.getElementById("current-task-name");
@@ -42,6 +50,23 @@ function whenReady(fn) {
   return (...args) => { if (isPlayerReady) fn(...args); };
 }
 
+// Devuelve título, duración, youtubeId y explainerYoutubeId de una tarea,
+// resolviendo lateralidad (ej. MENV) e idioma.
+function resolveTaskDef(taskId) {
+  const task = allTasks.find((t) => t.id === taskId);
+  if (!task) return null;
+
+  const base = task.variants ? (task.variants[handedness] || task.variants.diestro) : task;
+  const langData = base[language] || base.es;
+
+  return {
+    title: task.title,
+    duration: langData.duration,
+    youtubeId: langData.youtubeId,
+    explainerYoutubeId: langData.explainerYoutubeId,
+  };
+}
+
 // ================== CATÁLOGO DE TAREAS ==================
 fetch("data/tasks.json")
   .then((r) => r.json())
@@ -60,15 +85,67 @@ btnToggleTasks.addEventListener("click", () => {
   btnToggleTasks.textContent = isHidden ? "Ocultar tareas disponibles" : "Mostrar tareas disponibles";
 });
 
+// ================== INTERRUPTOR DE EXPLICATIVOS ==================
+toggleExplainers.addEventListener("change", () => {
+  explainersEnabled = toggleExplainers.checked;
+  // Si hay una tarea cargada pero en pausa (no reproduciéndose), refleja el cambio de inmediato.
+  if (currentTaskId && !isTaskCurrentlyPlaying(currentTaskId)) {
+    loadTask(currentTaskId);
+  }
+});
+
+// ================== SELECTOR DE LATERALIDAD ==================
+handednessButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    handedness = btn.dataset.hand;
+    handednessButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    refreshAllDurations();
+    reloadIfPausedAndAffected();
+  });
+});
+
+// ================== SELECTOR DE IDIOMA ==================
+languageButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    language = btn.dataset.lang;
+    languageButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    refreshAllDurations();
+    reloadIfPausedAndAffected();
+  });
+});
+
+// Recarga la tarea actual si está en pausa (nunca interrumpe una que se está reproduciendo).
+function reloadIfPausedAndAffected() {
+  if (currentTaskId && !isTaskCurrentlyPlaying(currentTaskId)) {
+    loadTask(currentTaskId);
+  }
+}
+
+// Actualiza la duración mostrada de TODAS las tareas en ambas listas,
+// sin reconstruir el resto del DOM. El idioma puede cambiar la duración
+// de cualquier tarea; la lateralidad solo afecta a la que tiene variantes (MENV).
+function refreshAllDurations() {
+  allTasks.forEach((task) => {
+    const def = resolveTaskDef(task.id);
+
+    const availDuration = availableTasksList.querySelector(`li[data-task-id="${task.id}"] .task-duration`);
+    if (availDuration) availDuration.textContent = def.duration;
+
+    const seqDuration = sequenceList.querySelector(`.sequence-item[data-task-id="${task.id}"] .task-duration`);
+    if (seqDuration) seqDuration.textContent = def.duration;
+  });
+}
+
 // ================== LISTA DE TAREAS DISPONIBLES ==================
 function renderAvailableTasks() {
   availableTasksList.innerHTML = "";
   allTasks.forEach((task) => {
+    const def = resolveTaskDef(task.id);
     const li = document.createElement("li");
     li.dataset.taskId = task.id;
     li.innerHTML = `
-      <span class="task-title">${task.title}</span>
-      <span class="task-duration">${task.duration}</span>
+      <span class="task-title">${def.title}</span>
+      <span class="task-duration">${def.duration}</span>
       <button class="task-action-btn btn-add" type="button" title="Agregar a la secuencia">+</button>
     `;
 
@@ -84,7 +161,6 @@ function renderAvailableTasks() {
   refreshAvailableTasksState();
 }
 
-// Oculta de la lista disponible cualquier tarea que ya esté en la secuencia.
 function refreshAvailableTasksState() {
   [...availableTasksList.children].forEach((li) => {
     const taskId = li.dataset.taskId;
@@ -103,7 +179,7 @@ function addTaskToSequence(taskId) {
 }
 
 function removeTaskFromSequence(taskId) {
-  if (isTaskCurrentlyPlaying(taskId)) return; // no se puede quitar lo que se está reproduciendo
+  if (isTaskCurrentlyPlaying(taskId)) return;
   const li = sequenceList.querySelector(`.sequence-item[data-task-id="${taskId}"]`);
   if (li) li.remove();
   syncSequenceFromDOM();
@@ -111,15 +187,15 @@ function removeTaskFromSequence(taskId) {
 
 // ================== SECUENCIA (drag & drop + botones) ==================
 function createSequenceItem(taskId) {
-  const task = allTasks.find((t) => t.id === taskId);
+  const def = resolveTaskDef(taskId);
   const li = document.createElement("li");
   li.className = "sequence-item";
   li.draggable = true;
   li.dataset.taskId = taskId;
   li.innerHTML = `
     <span class="drag-handle">⠿</span>
-    <span class="task-title">${task.title}</span>
-    <span class="task-duration">${task.duration}</span>
+    <span class="task-title">${def.title}</span>
+    <span class="task-duration">${def.duration}</span>
     <div class="move-buttons">
       <button class="btn-move btn-move-up" type="button" title="Subir">▲</button>
       <button class="btn-move btn-move-down" type="button" title="Bajar">▼</button>
@@ -144,7 +220,6 @@ function createSequenceItem(taskId) {
   return li;
 }
 
-// Mueve un <li> un puesto arriba (-1) o abajo (+1) dentro de la lista.
 function moveSequenceItem(li, direction) {
   if (isTaskCurrentlyPlaying(li.dataset.taskId)) return;
   if (direction === -1 && li.previousElementSibling) {
@@ -211,7 +286,7 @@ function syncSequenceFromDOM() {
   }
 
   if (!currentTaskId || !sequence.includes(currentTaskId)) {
-    loadTask(sequence[0]); // solo recarga si no había nada activo, o si quitaste la que estaba activa
+    loadTask(sequence[0]);
   } else {
     updateNowPlayingLabel();
     updateNavButtonsState();
@@ -223,8 +298,6 @@ function isTaskCurrentlyPlaying(taskId) {
   return isPlayerReady && taskId === currentTaskId && player.getPlayerState() === YT.PlayerState.PLAYING;
 }
 
-// Sincroniza candados, flechas y botón de quitar de cada tarea de la secuencia
-// según su posición y si está en reproducción; también refresca la lista disponible.
 function updateSequenceUI() {
   const items = [...sequenceList.querySelectorAll(".sequence-item")];
   items.forEach((li, index) => {
@@ -241,11 +314,17 @@ function updateSequenceUI() {
   refreshAvailableTasksState();
 }
 
+// ================== CARGA DE TAREAS (con o sin explicativo) ==================
 function loadTask(taskId) {
   currentTaskId = taskId;
   restScreen.hidden = true;
-  const task = allTasks.find((t) => t.id === taskId);
-  if (isPlayerReady) player.cueVideoById(task.youtubeId);
+  const def = resolveTaskDef(taskId);
+
+  const startWithExplainer = explainersEnabled && !!def.explainerYoutubeId;
+  currentSegment = startWithExplainer ? "explainer" : "main";
+  const videoId = startWithExplainer ? def.explainerYoutubeId : def.youtubeId;
+
+  if (isPlayerReady) player.cueVideoById(videoId);
   updateNowPlayingLabel();
   updateNavButtonsState();
   [btnPlayPause, btnRewind, btnForward, btnRestart, btnFullscreen].forEach((b) => (b.disabled = false));
@@ -254,8 +333,9 @@ function loadTask(taskId) {
 
 function updateNowPlayingLabel() {
   const index = sequence.indexOf(currentTaskId);
-  const task = allTasks.find((t) => t.id === currentTaskId);
-  currentTaskName.textContent = task ? task.title : "—";
+  const def = resolveTaskDef(currentTaskId);
+  const suffix = currentSegment === "explainer" ? " — video explicativo" : "";
+  currentTaskName.textContent = def ? def.title + suffix : "—";
   progressLabel.textContent = `(${index + 1}/${sequence.length})`;
   nowPlaying.hidden = false;
 }
@@ -297,6 +377,7 @@ function onYouTubeIframeAPIReady() {
       disablekb: 1,
       fs: 0,
       iv_load_policy: 3,
+      cc_load_policy: 0,
     },
     events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange, onError: onPlayerError },
   });
@@ -325,7 +406,16 @@ function onPlayerStateChange(event) {
   } else if (event.data === YT.PlayerState.ENDED) {
     btnPlayPause.textContent = "▶";
     stopProgressTracking();
-    showRestScreen();
+
+    if (currentSegment === "explainer") {
+      // Transición automática, sin pausa: del explicativo directo al video del paradigma.
+      const def = resolveTaskDef(currentTaskId);
+      currentSegment = "main";
+      player.loadVideoById(def.youtubeId); // loadVideoById reproduce de inmediato
+      updateNowPlayingLabel();
+    } else {
+      showRestScreen();
+    }
   }
 }
 
