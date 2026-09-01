@@ -1,3 +1,4 @@
+// ================== ESTADO ==================
 let allTasks = [];
 let currentTask = null;
 let steps = [];
@@ -11,6 +12,7 @@ let tickInterval = null;
 let isPlaying = false;
 let imagesPreloaded = false;
 
+// ================== DOM ==================
 const taskSelect = document.getElementById("task-select-inv");
 const blockDurationInput = document.getElementById("block-duration-input");
 const btnPlayPause = document.getElementById("btn-play-pause-inv");
@@ -25,6 +27,7 @@ const statActPerImage = document.getElementById("stat-act-per-image");
 const statRestPerImage = document.getElementById("stat-rest-per-image");
 const statTotalTime = document.getElementById("stat-total-time");
 
+// ================== CATÁLOGO DE TAREAS ==================
 fetch("data/investigacion-tasks.json")
   .then((res) => res.json())
   .then((data) => {
@@ -45,7 +48,6 @@ taskSelect.addEventListener("change", () => {
   blockDurationInput.value = currentTask.duracionBloque;
   blockDurationInput.disabled = true;
   btnPlayPause.disabled = true;
-  btnReset.disabled = false;
   btnFullscreen.disabled = false;
 
   rebuildSchedule();
@@ -69,13 +71,90 @@ blockDurationInput.addEventListener("change", () => {
   loadVisualForStep(0);
 });
 
-// --- Construye el nombre de archivo según la convención: PREFIJO_B<bloque>_<R|A><n> ---
+// ================== CONSTRUCCIÓN DE PASOS (lógica pura, sin tocar el DOM) ==================
+// Convierte una tarea del catálogo en la lista plana de pasos (reposo + activación,
+// bloque por bloque) que el reproductor va a recorrer, junto con sus tiempos acumulados.
+// No lee ni escribe nada de la interfaz — solo recibe datos y devuelve datos.
+function buildSchedule(task) {
+  const halfBlock = task.duracionBloque / 2;
+  const builtSteps = [];
+  const perBlockStats = []; // [{ actDuration, restDuration }] — una entrada por bloque
+
+  task.bloques.forEach((bloque, blockIdx) => {
+    const blockNumber = blockIdx + 1;
+    const count = bloque.cantidadImagenes;
+    const durationPerImage = halfBlock / count; // 50/50: reposo y activación duran igual
+
+    for (let i = 1; i <= count; i++) {
+      builtSteps.push({
+        type: "reposo",
+        src: buildImagePath(task.prefijo, blockNumber, "reposo", i, task.extension || "jpg"),
+        duration: durationPerImage,
+        bloque: blockNumber,
+        imgIndex: i,
+        imgCount: count,
+      });
+    }
+    for (let i = 1; i <= count; i++) {
+      builtSteps.push({
+        type: "activación",
+        src: buildImagePath(task.prefijo, blockNumber, "activacion", i, task.extension || "jpg"),
+        duration: durationPerImage,
+        bloque: blockNumber,
+        imgIndex: i,
+        imgCount: count,
+      });
+    }
+
+    perBlockStats.push({ actDuration: durationPerImage, restDuration: durationPerImage });
+  });
+
+  const starts = [];
+  let acc = 0;
+  builtSteps.forEach((step) => {
+    starts.push(acc);
+    acc += step.duration * 1000;
+  });
+
+  return {
+    steps: builtSteps,
+    cumulativeStarts: starts,
+    totalTaskMs: acc,
+    perBlockStats,
+  };
+}
+
+// Construye el nombre de archivo según la convención: PREFIJO_B<bloque>_<R|A><n>
 function buildImagePath(prefijo, blockNumber, type, imageIndex, extension) {
   const typeCode = type === "reposo" ? "R" : "A";
   return `imagenes/${prefijo}_B${blockNumber}_${typeCode}${imageIndex}.${extension}`;
 }
 
-// --- Precarga con validación: avisa en consola si algún archivo no existe ---
+// ================== ORQUESTACIÓN: calcula y refleja el resultado en la UI ==================
+function rebuildSchedule() {
+  const result = buildSchedule(currentTask);
+  steps = result.steps;
+  cumulativeStarts = result.cumulativeStarts;
+  totalTaskMs = result.totalTaskMs;
+
+  renderStats(result);
+
+  imagesPreloaded = false;
+  currentStepIndex = -1;
+  elapsedAtPauseMs = 0;
+}
+
+function renderStats(result) {
+  const firstBlockStats = result.perBlockStats[0];
+  if (firstBlockStats) {
+    statActPerImage.textContent = formatSeconds(firstBlockStats.actDuration);
+    statRestPerImage.textContent = formatSeconds(firstBlockStats.restDuration);
+  }
+  const totalSeconds = currentTask.duracionBloque * currentTask.bloques.length;
+  statTotalTime.textContent = formatSeconds(totalSeconds);
+}
+
+// ================== PRECARGA DE IMÁGENES ==================
 function preloadImages(onDone) {
   const urls = steps.map((s) => s.src);
   let processedCount = 0;
@@ -116,60 +195,7 @@ function preloadImages(onDone) {
   }
 }
 
-function rebuildSchedule() {
-  const halfBlock = currentTask.duracionBloque / 2;
-  const extension = currentTask.extension || "jpg";
-  steps = [];
-
-  currentTask.bloques.forEach((bloque, blockIdx) => {
-    const blockNumber = blockIdx + 1;
-    const count = bloque.cantidadImagenes;
-    const restDuration = halfBlock / count;
-    const actDuration = halfBlock / count;
-
-    for (let i = 1; i <= count; i++) {
-      steps.push({
-        type: "reposo",
-        src: buildImagePath(currentTask.prefijo, blockNumber, "reposo", i, extension),
-        duration: restDuration,
-        bloque: blockNumber,
-        imgIndex: i,
-        imgCount: count,
-      });
-    }
-    for (let i = 1; i <= count; i++) {
-      steps.push({
-        type: "activación",
-        src: buildImagePath(currentTask.prefijo, blockNumber, "activacion", i, extension),
-        duration: actDuration,
-        bloque: blockNumber,
-        imgIndex: i,
-        imgCount: count,
-      });
-    }
-
-    if (blockIdx === 0) {
-      statActPerImage.textContent = formatSeconds(actDuration);
-      statRestPerImage.textContent = formatSeconds(restDuration);
-    }
-  });
-
-  cumulativeStarts = [];
-  let acc = 0;
-  steps.forEach((step) => {
-    cumulativeStarts.push(acc);
-    acc += step.duration * 1000;
-  });
-  totalTaskMs = acc;
-
-  const totalSeconds = currentTask.duracionBloque * currentTask.bloques.length;
-  statTotalTime.textContent = formatSeconds(totalSeconds);
-
-  imagesPreloaded = false;
-  currentStepIndex = -1;
-  elapsedAtPauseMs = 0;
-}
-
+// ================== PRESENTACIÓN DEL PASO ACTUAL ==================
 function loadVisualForStep(index) {
   currentStepIndex = index;
   const step = steps[currentStepIndex];
@@ -181,6 +207,7 @@ function loadVisualForStep(index) {
     `Bloque ${step.bloque}/${currentTask.bloques.length} — ${step.type} — imagen ${step.imgIndex}/${step.imgCount}`;
 }
 
+// ================== REPRODUCCIÓN ==================
 btnPlayPause.addEventListener("click", () => {
   if (!imagesPreloaded) return;
   if (isPlaying) {
@@ -272,6 +299,7 @@ function updateProgressUI(elapsed) {
   progressLabel.textContent = formatSeconds(timeLeftMs / 1000) + " restantes en esta imagen";
 }
 
+// ================== VISIBILIDAD DE LA PESTAÑA ==================
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && isPlaying) {
     pausePlayback();
@@ -279,6 +307,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+// ================== UTILIDADES ==================
 function formatSeconds(totalSeconds) {
   const rounded = Math.round(totalSeconds * 100) / 100;
   return rounded.toFixed(2) + "s";
