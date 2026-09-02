@@ -50,6 +50,41 @@ function whenReady(fn) {
   return (...args) => { if (isPlayerReady) fn(...args); };
 }
 
+// Convierte "MM:SS" a segundos totales. Devuelve 0 si el formato no es válido
+// (por ejemplo, si todavía queda un placeholder "MM:SS" sin completar).
+function durationToSeconds(mmss) {
+  if (!mmss) return 0;
+  const parts = mmss.split(":").map((p) => parseInt(p, 10));
+  if (parts.length !== 2 || parts.some(isNaN)) return 0;
+  return parts[0] * 60 + parts[1];
+}
+
+// Convierte segundos totales de vuelta a "MM:SS", con padding de ceros.
+function secondsToDuration(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// Duración que se muestra en las listas, usando exclusivamente los valores
+// escritos a mano en tasks.json (duration / explainerDuration).
+// Si los explicativos están activados y esta tarea tiene uno con duración
+// válida, suma explicativo + tarea. Si no, muestra solo la tarea.
+function getDisplayDuration(def) {
+  const taskSeconds = durationToSeconds(def.duration);
+  const explainerSeconds = durationToSeconds(def.explainerDuration);
+
+  if (!explainersEnabled || !explainerSeconds) {
+    return { text: secondsToDuration(taskSeconds), tooltip: "" };
+  }
+
+  const total = taskSeconds + explainerSeconds;
+  return {
+    text: secondsToDuration(total),
+    tooltip: `${def.explainerDuration} explicativo + ${def.duration} tarea`,
+  };
+}
+
 // Devuelve título, duración, youtubeId y explainerYoutubeId de una tarea,
 // resolviendo lateralidad (ej. MENV) e idioma.
 function resolveTaskDef(taskId) {
@@ -62,6 +97,7 @@ function resolveTaskDef(taskId) {
   return {
     title: task.title,
     duration: langData.duration,
+    explainerDuration: langData.explainerDuration,
     youtubeId: langData.youtubeId,
     explainerYoutubeId: langData.explainerYoutubeId,
   };
@@ -79,6 +115,7 @@ fetch("data/tasks.json")
     console.error("Error cargando tasks.json:", err);
   });
 
+// ================== MOSTRAR / OCULTAR TAREAS DISPONIBLES ==================
 btnToggleTasks.addEventListener("click", () => {
   const isHidden = availableTasksPanel.hidden;
   availableTasksPanel.hidden = !isHidden;
@@ -88,7 +125,7 @@ btnToggleTasks.addEventListener("click", () => {
 // ================== INTERRUPTOR DE EXPLICATIVOS ==================
 toggleExplainers.addEventListener("change", () => {
   explainersEnabled = toggleExplainers.checked;
-  // Si hay una tarea cargada pero en pausa (no reproduciéndose), refleja el cambio de inmediato.
+  refreshAllDurations();
   if (currentTaskId && !isTaskCurrentlyPlaying(currentTaskId)) {
     loadTask(currentTaskId);
   }
@@ -122,17 +159,23 @@ function reloadIfPausedAndAffected() {
 }
 
 // Actualiza la duración mostrada de TODAS las tareas en ambas listas,
-// sin reconstruir el resto del DOM. El idioma puede cambiar la duración
-// de cualquier tarea; la lateralidad solo afecta a la que tiene variantes (MENV).
+// sin reconstruir el resto del DOM.
 function refreshAllDurations() {
   allTasks.forEach((task) => {
     const def = resolveTaskDef(task.id);
+    const display = getDisplayDuration(def);
 
-    const availDuration = availableTasksList.querySelector(`li[data-task-id="${task.id}"] .task-duration`);
-    if (availDuration) availDuration.textContent = def.duration;
+    const availDurationEl = availableTasksList.querySelector(`li[data-task-id="${task.id}"] .task-duration`);
+    if (availDurationEl) {
+      availDurationEl.textContent = display.text;
+      availDurationEl.title = display.tooltip;
+    }
 
-    const seqDuration = sequenceList.querySelector(`.sequence-item[data-task-id="${task.id}"] .task-duration`);
-    if (seqDuration) seqDuration.textContent = def.duration;
+    const seqDurationEl = sequenceList.querySelector(`.sequence-item[data-task-id="${task.id}"] .task-duration`);
+    if (seqDurationEl) {
+      seqDurationEl.textContent = display.text;
+      seqDurationEl.title = display.tooltip;
+    }
   });
 }
 
@@ -141,11 +184,14 @@ function renderAvailableTasks() {
   availableTasksList.innerHTML = "";
   allTasks.forEach((task) => {
     const def = resolveTaskDef(task.id);
+    const display = getDisplayDuration(def);
+
     const li = document.createElement("li");
+    li.draggable = true;
     li.dataset.taskId = task.id;
     li.innerHTML = `
       <span class="task-title">${def.title}</span>
-      <span class="task-duration">${def.duration}</span>
+      <span class="task-duration" title="${display.tooltip}">${display.text}</span>
       <button class="task-action-btn btn-add" type="button" title="Agregar a la secuencia">+</button>
     `;
 
@@ -188,6 +234,8 @@ function removeTaskFromSequence(taskId) {
 // ================== SECUENCIA (drag & drop + botones) ==================
 function createSequenceItem(taskId) {
   const def = resolveTaskDef(taskId);
+  const display = getDisplayDuration(def);
+
   const li = document.createElement("li");
   li.className = "sequence-item";
   li.draggable = true;
@@ -195,7 +243,7 @@ function createSequenceItem(taskId) {
   li.innerHTML = `
     <span class="drag-handle">⠿</span>
     <span class="task-title">${def.title}</span>
-    <span class="task-duration">${def.duration}</span>
+    <span class="task-duration" title="${display.tooltip}">${display.text}</span>
     <div class="move-buttons">
       <button class="btn-move btn-move-up" type="button" title="Subir">▲</button>
       <button class="btn-move btn-move-down" type="button" title="Bajar">▼</button>
@@ -408,10 +456,9 @@ function onPlayerStateChange(event) {
     stopProgressTracking();
 
     if (currentSegment === "explainer") {
-      // Transición automática, sin pausa: del explicativo directo al video del paradigma.
       const def = resolveTaskDef(currentTaskId);
       currentSegment = "main";
-      player.loadVideoById(def.youtubeId); // loadVideoById reproduce de inmediato
+      player.loadVideoById(def.youtubeId);
       updateNowPlayingLabel();
     } else {
       showRestScreen();
