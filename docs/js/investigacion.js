@@ -1,3 +1,17 @@
+// ================== CONSTANTES CIENTÍFICAS ==================
+// La proporción estímulo:descanso queda fija en 50/50 — no es configurable.
+const STIMULUS_RATIO = 0.5;
+// Mínimo defendible: la señal BOLD llega a su meseta entre 6-9s tras el inicio
+// del estímulo (Bandettini & Cox, 2000); por debajo de 8s se mide una respuesta
+// parcial, no la meseta real.
+const MIN_STIMULUS_SECONDS = 8;
+// Su protocolo institucional ya usa 10s/15s de estímulo — por debajo de eso
+// sigue siendo defendible, pero se avisa por quedar bajo el estándar propio.
+const RECOMMENDED_MIN_STIMULUS_SECONDS = 10;
+const MAX_STIMULUS_SECONDS = 50;
+
+const JITTER_PERCENT = 15;
+
 // ================== ESTADO ==================
 let allTasks = [];
 let currentTask = null;
@@ -12,12 +26,33 @@ let tickInterval = null;
 let isPlaying = false;
 let imagesPreloaded = false;
 
+let calcMode = "blocks-block";
+let jitterEnabled = true;
+
+// Los tres parámetros "canónicos": duración total, número de bloques, duración de bloque.
+// Con proporción fija, duración de estímulo = duración de bloque / 2, siempre.
+let paramState = { totalDuration: 100, numBlocks: 5, blockDuration: 20 };
+
 // ================== DOM ==================
 const taskSelect = document.getElementById("task-select-inv");
+const modeRadios = document.querySelectorAll('input[name="calc-mode"]');
+const toggleJitter = document.getElementById("toggle-jitter");
+
+const totalDurationInput = document.getElementById("total-duration-input");
+const numBlocksInput = document.getElementById("num-blocks-input");
+const numBlocksHint = document.getElementById("num-blocks-hint");
 const blockDurationInput = document.getElementById("block-duration-input");
+const stimulusDurationDisplay = document.getElementById("stimulus-duration-display");
+const paramsWarning = document.getElementById("params-warning");
+
+const btnRegenerate = document.getElementById("btn-regenerate-inv");
+
 const btnPlayPause = document.getElementById("btn-play-pause-inv");
 const btnReset = document.getElementById("btn-reset-inv");
+const btnSkipStep = document.getElementById("btn-skip-step-inv");
+const btnExtendStep = document.getElementById("btn-extend-step-inv");
 const btnFullscreen = document.getElementById("btn-fullscreen-inv");
+
 const stageContainer = document.getElementById("stage-container");
 const stageImage = document.getElementById("stage-image");
 const currentBlockLabel = document.getElementById("current-block-label");
@@ -45,51 +80,173 @@ taskSelect.addEventListener("change", () => {
   currentTask = allTasks.find((t) => t.id === taskSelect.value);
   if (!currentTask) return;
 
-  blockDurationInput.value = currentTask.duracionBloque;
-  blockDurationInput.disabled = true;
-  btnPlayPause.disabled = true;
+  // Al elegir tarea, arrancamos siempre en el modo "bloques + duración de bloque",
+  // con los valores que ya tenían definidos como estándar para esa tarea.
+  calcMode = "blocks-block";
+  document.querySelector('input[name="calc-mode"][value="blocks-block"]').checked = true;
+
+  const maxBlocks = currentTask.bloques.length;
+  numBlocksInput.max = maxBlocks;
+  numBlocksHint.textContent = `Máximo ${maxBlocks} bloques: es cuántos hay con imágenes preparadas para esta tarea.`;
+
+  paramState.numBlocks = maxBlocks;
+  paramState.blockDuration = currentTask.duracionBloque;
+  paramState.totalDuration = paramState.numBlocks * paramState.blockDuration;
+
+  [totalDurationInput, numBlocksInput, blockDurationInput].forEach((el) => (el.disabled = false));
   btnFullscreen.disabled = false;
 
+  applyMode();
+  syncInputsFromState();
+  loadAndPreloadCurrentTask();
+});
+
+// ================== SELECTOR DE MODO ==================
+modeRadios.forEach((radio) => {
+  radio.addEventListener("change", () => {
+    if (!radio.checked) return;
+    calcMode = radio.value;
+    applyMode();
+  });
+});
+
+// Habilita/deshabilita los campos según qué dos variables se pueden editar en este modo.
+function applyMode() {
+  totalDurationInput.disabled = calcMode === "blocks-block";
+  numBlocksInput.disabled = calcMode === "total-block";
+  blockDurationInput.disabled = calcMode === "total-blocks";
+}
+
+// ================== ENTRADAS EDITABLES → RECALCULAR EL TERCER VALOR ==================
+totalDurationInput.addEventListener("change", () => {
+  paramState.totalDuration = parseFloat(totalDurationInput.value) || paramState.totalDuration;
+  recomputeFromMode();
+});
+
+numBlocksInput.addEventListener("change", () => {
+  const maxBlocks = currentTask ? currentTask.bloques.length : Infinity;
+  const value = Math.min(maxBlocks, Math.max(1, parseInt(numBlocksInput.value, 10) || paramState.numBlocks));
+  paramState.numBlocks = value;
+  recomputeFromMode();
+});
+
+blockDurationInput.addEventListener("change", () => {
+  paramState.blockDuration = parseFloat(blockDurationInput.value) || paramState.blockDuration;
+  recomputeFromMode();
+});
+
+// A partir de los dos valores fijos del modo activo, calcula el tercero.
+function recomputeFromMode() {
+  if (calcMode === "blocks-block") {
+    paramState.totalDuration = paramState.numBlocks * paramState.blockDuration;
+  } else if (calcMode === "total-blocks") {
+    paramState.blockDuration = paramState.totalDuration / paramState.numBlocks;
+  } else if (calcMode === "total-block") {
+    const rawBlocks = paramState.totalDuration / paramState.blockDuration;
+    paramState.numBlocks = Math.round(rawBlocks);
+    // Si no divide exacto, ajustamos la duración total al múltiplo real más cercano
+    // en vez de dejar un residuo silencioso.
+    paramState.totalDuration = paramState.numBlocks * paramState.blockDuration;
+  }
+
+  syncInputsFromState();
+  if (currentTask) {
+    currentTask.duracionBloque = paramState.blockDuration;
+    rebuildAndReload();
+  }
+}
+
+function syncInputsFromState() {
+  totalDurationInput.value = round2(paramState.totalDuration);
+  numBlocksInput.value = paramState.numBlocks;
+  blockDurationInput.value = round2(paramState.blockDuration);
+
+  const stimulusSeconds = paramState.blockDuration * STIMULUS_RATIO;
+  stimulusDurationDisplay.value = round2(stimulusSeconds) + "s";
+
+  validateStimulusDuration(stimulusSeconds);
+}
+
+// Aplica el piso científico: bloquea configuraciones por debajo de lo defendible,
+// y avisa (sin bloquear) si queda por debajo del estándar institucional propio.
+function validateStimulusDuration(stimulusSeconds) {
+  if (stimulusSeconds < MIN_STIMULUS_SECONDS) {
+    paramsWarning.textContent =
+      `⚠ ${round2(stimulusSeconds)}s de estímulo está por debajo del mínimo recomendado ` +
+      `(${MIN_STIMULUS_SECONDS}s) para que la señal BOLD alcance su meseta. Aumenta la duración de bloque.`;
+    return false;
+  }
+  if (stimulusSeconds < RECOMMENDED_MIN_STIMULUS_SECONDS) {
+    paramsWarning.textContent =
+      `Nota: ${round2(stimulusSeconds)}s de estímulo queda por debajo del estándar institucional (10s), ` +
+      `aunque sigue siendo estadísticamente defendible.`;
+    return true;
+  }
+  if (stimulusSeconds > MAX_STIMULUS_SECONDS) {
+    paramsWarning.textContent =
+      `Nota: ${round2(stimulusSeconds)}s de estímulo es un bloque largo — considera si es necesario para esta tarea.`;
+    return true;
+  }
+  paramsWarning.textContent = "";
+  return true;
+}
+
+// ================== JITTER ==================
+toggleJitter.addEventListener("change", () => {
+  jitterEnabled = toggleJitter.checked;
+  if (currentTask) rebuildAndReload();
+});
+
+btnRegenerate.addEventListener("click", () => {
+  if (currentTask) rebuildAndReload();
+});
+
+function loadAndPreloadCurrentTask() {
   rebuildSchedule();
   stopPlayback();
   preloadImages(() => {
     imagesPreloaded = true;
-    blockDurationInput.disabled = false;
     btnPlayPause.disabled = false;
+    btnReset.disabled = false;
+    btnRegenerate.disabled = false;
     loadVisualForStep(0);
   });
-});
+}
 
-blockDurationInput.addEventListener("change", () => {
-  if (!currentTask) return;
-  const value = parseFloat(blockDurationInput.value);
-  if (isNaN(value) || value <= 0) return;
-
-  currentTask.duracionBloque = value;
+function rebuildAndReload() {
   rebuildSchedule();
   stopPlayback();
   loadVisualForStep(0);
-});
+}
 
 // ================== CONSTRUCCIÓN DE PASOS (lógica pura, sin tocar el DOM) ==================
-// Convierte una tarea del catálogo en la lista plana de pasos (reposo + activación,
-// bloque por bloque) que el reproductor va a recorrer, junto con sus tiempos acumulados.
-// No lee ni escribe nada de la interfaz — solo recibe datos y devuelve datos.
-function buildSchedule(task) {
-  const halfBlock = task.duracionBloque / 2;
-  const builtSteps = [];
-  const perBlockStats = []; // [{ actDuration, restDuration }] — una entrada por bloque
+function jitteredBlockDuration(baseDuration) {
+  if (!jitterEnabled) return baseDuration;
+  const range = baseDuration * (JITTER_PERCENT / 100);
+  const offset = (Math.random() * 2 - 1) * range;
+  return baseDuration + offset;
+}
 
-  task.bloques.forEach((bloque, blockIdx) => {
+function buildSchedule(task, numBlocks, blockDurationSeconds) {
+  const builtSteps = [];
+  const perBlockStats = [];
+  const blocksToUse = task.bloques.slice(0, numBlocks);
+
+  blocksToUse.forEach((bloque, blockIdx) => {
     const blockNumber = blockIdx + 1;
     const count = bloque.cantidadImagenes;
-    const durationPerImage = halfBlock / count; // 50/50: reposo y activación duran igual
+
+    const blockDuration = jitteredBlockDuration(blockDurationSeconds);
+    const actTotal = blockDuration * STIMULUS_RATIO;
+    const restTotal = blockDuration * (1 - STIMULUS_RATIO);
+    const actDuration = actTotal / count;
+    const restDuration = restTotal / count;
 
     for (let i = 1; i <= count; i++) {
       builtSteps.push({
         type: "reposo",
         src: buildImagePath(task.prefijo, blockNumber, "reposo", i, task.extension || "jpg"),
-        duration: durationPerImage,
+        duration: restDuration,
         bloque: blockNumber,
         imgIndex: i,
         imgCount: count,
@@ -99,14 +256,14 @@ function buildSchedule(task) {
       builtSteps.push({
         type: "activación",
         src: buildImagePath(task.prefijo, blockNumber, "activacion", i, task.extension || "jpg"),
-        duration: durationPerImage,
+        duration: actDuration,
         bloque: blockNumber,
         imgIndex: i,
         imgCount: count,
       });
     }
 
-    perBlockStats.push({ actDuration: durationPerImage, restDuration: durationPerImage });
+    perBlockStats.push({ actDuration, restDuration, blockDuration });
   });
 
   const starts = [];
@@ -116,15 +273,9 @@ function buildSchedule(task) {
     acc += step.duration * 1000;
   });
 
-  return {
-    steps: builtSteps,
-    cumulativeStarts: starts,
-    totalTaskMs: acc,
-    perBlockStats,
-  };
+  return { steps: builtSteps, cumulativeStarts: starts, totalTaskMs: acc, perBlockStats };
 }
 
-// Construye el nombre de archivo según la convención: PREFIJO_B<bloque>_<R|A><n>
 function buildImagePath(prefijo, blockNumber, type, imageIndex, extension) {
   const typeCode = type === "reposo" ? "R" : "A";
   return `imagenes/${prefijo}_B${blockNumber}_${typeCode}${imageIndex}.${extension}`;
@@ -132,7 +283,7 @@ function buildImagePath(prefijo, blockNumber, type, imageIndex, extension) {
 
 // ================== ORQUESTACIÓN: calcula y refleja el resultado en la UI ==================
 function rebuildSchedule() {
-  const result = buildSchedule(currentTask);
+  const result = buildSchedule(currentTask, paramState.numBlocks, paramState.blockDuration);
   steps = result.steps;
   cumulativeStarts = result.cumulativeStarts;
   totalTaskMs = result.totalTaskMs;
@@ -150,8 +301,7 @@ function renderStats(result) {
     statActPerImage.textContent = formatSeconds(firstBlockStats.actDuration);
     statRestPerImage.textContent = formatSeconds(firstBlockStats.restDuration);
   }
-  const totalSeconds = currentTask.duracionBloque * currentTask.bloques.length;
-  statTotalTime.textContent = formatSeconds(totalSeconds);
+  statTotalTime.textContent = formatSeconds(result.totalTaskMs / 1000);
 }
 
 // ================== PRECARGA DE IMÁGENES ==================
@@ -204,7 +354,7 @@ function loadVisualForStep(index) {
   stageImage.src = step.src;
   stageImage.hidden = false;
   currentBlockLabel.textContent =
-    `Bloque ${step.bloque}/${currentTask.bloques.length} — ${step.type} — imagen ${step.imgIndex}/${step.imgCount}`;
+    `Bloque ${step.bloque}/${paramState.numBlocks} — ${step.type} — imagen ${step.imgIndex}/${step.imgCount}`;
 }
 
 // ================== REPRODUCCIÓN ==================
@@ -221,8 +371,10 @@ function startPlayback() {
   if (!currentTask || steps.length === 0) return;
   isPlaying = true;
   btnPlayPause.textContent = "⏸";
-  blockDurationInput.disabled = true;
-  taskSelect.disabled = true;
+  setParamControlsDisabled(true);
+  btnRegenerate.disabled = true;
+  btnSkipStep.disabled = false;
+  btnExtendStep.disabled = false;
 
   playStartTimestamp = Date.now() - elapsedAtPauseMs;
   tickInterval = setInterval(tick, 50);
@@ -233,8 +385,10 @@ function pausePlayback() {
   btnPlayPause.textContent = "▶";
   clearInterval(tickInterval);
   elapsedAtPauseMs = Date.now() - playStartTimestamp;
-  blockDurationInput.disabled = false;
-  taskSelect.disabled = false;
+  setParamControlsDisabled(false);
+  btnRegenerate.disabled = false;
+  btnSkipStep.disabled = true;
+  btnExtendStep.disabled = true;
 }
 
 function stopPlayback() {
@@ -242,8 +396,20 @@ function stopPlayback() {
   btnPlayPause.textContent = "▶";
   clearInterval(tickInterval);
   elapsedAtPauseMs = 0;
-  blockDurationInput.disabled = false;
-  taskSelect.disabled = false;
+  setParamControlsDisabled(false);
+  btnRegenerate.disabled = false;
+  btnSkipStep.disabled = true;
+  btnExtendStep.disabled = true;
+}
+
+function setParamControlsDisabled(disabled) {
+  taskSelect.disabled = disabled;
+  modeRadios.forEach((r) => (r.disabled = disabled));
+  if (disabled) {
+    [totalDurationInput, numBlocksInput, blockDurationInput].forEach((el) => (el.disabled = true));
+  } else {
+    applyMode();
+  }
 }
 
 btnReset.addEventListener("click", () => {
@@ -257,6 +423,33 @@ btnFullscreen.addEventListener("click", () => {
   } else {
     document.exitFullscreen();
   }
+});
+
+// ================== CONTROLES MANUALES EN VIVO ==================
+btnSkipStep.addEventListener("click", () => {
+  if (!isPlaying) return;
+  const nextIndex = currentStepIndex + 1;
+
+  if (nextIndex >= steps.length) {
+    stopPlayback();
+    currentBlockLabel.textContent = "Tarea completa";
+    return;
+  }
+
+  const targetElapsed = cumulativeStarts[nextIndex];
+  playStartTimestamp = Date.now() - targetElapsed;
+});
+
+btnExtendStep.addEventListener("click", () => {
+  if (!isPlaying || currentStepIndex < 0) return;
+  const extraSeconds = 5;
+  const extraMs = extraSeconds * 1000;
+
+  steps[currentStepIndex].duration += extraSeconds;
+  for (let i = currentStepIndex + 1; i < cumulativeStarts.length; i++) {
+    cumulativeStarts[i] += extraMs;
+  }
+  totalTaskMs += extraMs;
 });
 
 function tick() {
@@ -311,4 +504,8 @@ document.addEventListener("visibilitychange", () => {
 function formatSeconds(totalSeconds) {
   const rounded = Math.round(totalSeconds * 100) / 100;
   return rounded.toFixed(2) + "s";
+}
+
+function round2(value) {
+  return Math.round(value * 100) / 100;
 }
