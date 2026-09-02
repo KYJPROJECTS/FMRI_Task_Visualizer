@@ -227,15 +227,47 @@ function jitteredBlockDuration(baseDuration) {
   return baseDuration + offset;
 }
 
+// Mezcla un arreglo sin alterar el original (Fisher-Yates)
+function shuffleArray(array) {
+  const arr = array.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Junta las rutas reales de imágenes de los bloques en uso, para poder mezclarlas
+function buildImagePool(task, blocksToUse, type, extension) {
+  const pool = [];
+  blocksToUse.forEach((bloque, blockIdx) => {
+    const blockNumber = blockIdx + 1;
+    for (let i = 1; i <= bloque.cantidadImagenes; i++) {
+      pool.push(buildImagePath(task.prefijo, blockNumber, type, i, extension));
+    }
+  });
+  return pool;
+}
+
 function buildSchedule(task, numBlocks, blockDurationSeconds) {
   const builtSteps = [];
   const perBlockStats = [];
   const blocksToUse = task.bloques.slice(0, numBlocks);
+  const extension = task.extension || "jpg";
+  const randomized = !!task.ordenAleatorio;
+
+  // Si la tarea pide orden aleatorio: se arma una "bolsa" con TODAS las imágenes
+  // reales (de los bloques en uso), se mezclan sin repetir, y se reparten
+  // respetando cuántas necesita cada bloque — pueden cruzarse entre bloques.
+  let restPool, actPool, restCursor = 0, actCursor = 0;
+  if (randomized) {
+    restPool = shuffleArray(buildImagePool(task, blocksToUse, "reposo", extension));
+    actPool = shuffleArray(buildImagePool(task, blocksToUse, "activacion", extension));
+  }
 
   blocksToUse.forEach((bloque, blockIdx) => {
     const blockNumber = blockIdx + 1;
     const count = bloque.cantidadImagenes;
-
     const blockDuration = jitteredBlockDuration(blockDurationSeconds);
     const actTotal = blockDuration * STIMULUS_RATIO;
     const restTotal = blockDuration * (1 - STIMULUS_RATIO);
@@ -243,24 +275,16 @@ function buildSchedule(task, numBlocks, blockDurationSeconds) {
     const restDuration = restTotal / count;
 
     for (let i = 1; i <= count; i++) {
-      builtSteps.push({
-        type: "reposo",
-        src: buildImagePath(task.prefijo, blockNumber, "reposo", i, task.extension || "jpg"),
-        duration: restDuration,
-        bloque: blockNumber,
-        imgIndex: i,
-        imgCount: count,
-      });
+      const src = randomized
+        ? restPool[restCursor++]
+        : buildImagePath(task.prefijo, blockNumber, "reposo", i, extension);
+      builtSteps.push({ type: "reposo", src, duration: restDuration, bloque: blockNumber, imgIndex: i, imgCount: count });
     }
     for (let i = 1; i <= count; i++) {
-      builtSteps.push({
-        type: "activación",
-        src: buildImagePath(task.prefijo, blockNumber, "activacion", i, task.extension || "jpg"),
-        duration: actDuration,
-        bloque: blockNumber,
-        imgIndex: i,
-        imgCount: count,
-      });
+      const src = randomized
+        ? actPool[actCursor++]
+        : buildImagePath(task.prefijo, blockNumber, "activacion", i, extension);
+      builtSteps.push({ type: "activación", src, duration: actDuration, bloque: blockNumber, imgIndex: i, imgCount: count });
     }
 
     perBlockStats.push({ actDuration, restDuration, blockDuration });
@@ -413,8 +437,12 @@ function setParamControlsDisabled(disabled) {
 }
 
 btnReset.addEventListener("click", () => {
-  stopPlayback();
-  loadVisualForStep(0);
+  if (currentTask && currentTask.ordenAleatorio) {
+    rebuildAndReload(); // tareas aleatorias: reiniciar también genera un orden nuevo
+  } else {
+    stopPlayback();
+    loadVisualForStep(0);
+  }
 });
 
 btnFullscreen.addEventListener("click", () => {
