@@ -6,12 +6,14 @@
       "es": {
         "youtubeId": "RTsc1ZFW7Ng",
         "explainerYoutubeId": "gbKXa9-hnsQ",
-        "duration": "03:23"
+        "duration": "03:23",
+        "explainerDuration": "00:26"
       },
       "en": {
-        "youtubeId": "ID_VIDEO_MOTOR_EN",
+        "youtubeId": "J5uAOOc1a0g",
         "explainerYoutubeId": "ID_EXPLICATIVO_MOTOR_EN",
-        "duration": "MM:SS"
+        "duration": "3:20",
+        "explainerDuration": "MM:SS"
       }
     },
     {
@@ -20,12 +22,14 @@
       "es": {
         "youtubeId": "itqLOKkPK7o",
         "explainerYoutubeId": "OpRlISuAU80",
-        "duration": "03:21"
+        "duration": "03:21",
+        "explainerDuration": "00:39"
       },
       "en": {
-        "youtubeId": "ID_VIDEO_LH_EN",
+        "youtubeId": "QBOhiB9NuwI",
         "explainerYoutubeId": "ID_EXPLICATIVO_LH_EN",
-        "duration": "MM:SS"
+        "duration": "03:20",
+        "explainerDuration": "MM:SS"
       }
     },
     {
@@ -34,12 +38,14 @@
       "es": {
         "youtubeId": "GAqq7h9AbYg",
         "explainerYoutubeId": "Vfw-Z2Mnh5E",
-        "duration": "05:00"
+        "duration": "05:00",
+        "explainerDuration": "00:41"
       },
       "en": {
-        "youtubeId": "ID_VIDEO_VISOVERBAL_EN",
+        "youtubeId": "ciAEFQRPLz0",
         "explainerYoutubeId": "ID_EXPLICATIVO_VISOVERBAL_EN",
-        "duration": "MM:SS"
+        "duration": "05:00",
+        "explainerDuration": "MM:SS"
       }
     },
     {
@@ -48,12 +54,14 @@
       "es": {
         "youtubeId": "p3H3GebNDHo",
         "explainerYoutubeId": "alqz9QjoMs0",
-        "duration": "02:01"
+        "duration": "02:01",
+        "explainerDuration": "00:41"
       },
       "en": {
-        "youtubeId": "ID_VIDEO_MEV_EN",
+        "youtubeId": "H2FaLw-i0cg",
         "explainerYoutubeId": "ID_EXPLICATIVO_MEV_EN",
-        "duration": "MM:SS"
+        "duration": "02:00",
+        "explainerDuration": "MM:SS"
       }
     },
     {
@@ -64,24 +72,28 @@
           "es": {
             "youtubeId": "kwSVqELYZbY",
             "explainerYoutubeId": "pw1aiczNzLQ",
-            "duration": "03:23"
+            "duration": "03:23",
+            "explainerDuration": "00:35"
           },
           "en": {
-            "youtubeId": "mL_nX5T2lTA",
-            "explainerYoutubeId": "mL_nX5T2lTA",
-            "duration": "MM:SS"
+            "youtubeId": "kwMnQZUTUmQ",
+            "explainerYoutubeId": "ID_EXPLICATIVO_MENV_DIESTRO_EN",
+            "duration": "03:20",
+            "explainerDuration": "MM:SS"
           }
         },
         "zurdo": {
           "es": {
             "youtubeId": "kwSVqELYZbY",
             "explainerYoutubeId": "BJApGf3vDlI",
-            "duration": "03:23"
+            "duration": "03:23",
+            "explainerDuration": "00:36"
           },
           "en": {
-            "youtubeId": "ID_VIDEO_MENV_ZURDO_EN",
+            "youtubeId": "kwMnQZUTUmQ",
             "explainerYoutubeId": "ID_EXPLICATIVO_MENV_ZURDO_EN",
-            "duration": "MM:SS"
+            "duration": "03:20",
+            "explainerDuration": "MM:SS"
           }
         }
       }
