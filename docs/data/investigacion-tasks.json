@@ -37,23 +37,23 @@
       "extension": "png",
       "bloques": [
         {
-          "activacion": 8,
+          "activacion": 7,
           "reposo": 7
         },
         {
-          "activacion": 8,
+          "activacion": 7,
           "reposo": 7
         },
         {
-          "activacion": 8,
+          "activacion": 7,
           "reposo": 7
         },
         {
-          "activacion": 8,
+          "activacion": 7,
           "reposo": 7
         },
         {
-          "activacion": 8,
+          "activacion": 7,
           "reposo": 7
         }
       ]
