@@ -1,35 +1,139 @@
 {
   "tasks": [
     {
-      "id": "lenguaje_historia",
-      "title": "Tarea de lenguaje: historia",
-      "prefijo": "LH",
-      "duracionBloque": 20,
-      "extension": "jpeg",
+      "id": "lh",
+      "title": "Tarea de lenguaje historia",
+      "prefijo": "lh",
+      "duracionBloque": 40,
+      "extension": "png",
       "bloques": [
         {
-          "cantidadImagenes": 5
+          "activacion": 1,
+          "reposo": 1
         },
         {
-          "cantidadImagenes": 5
+          "activacion": 1,
+          "reposo": 1
         },
         {
-          "cantidadImagenes": 5
+          "activacion": 1,
+          "reposo": 1
+        },
+        {
+          "activacion": 1,
+          "reposo": 1
+        },
+        {
+          "activacion": 1,
+          "reposo": 1
+        }
+      ]
+    },
+    {
+      "id": "lvv",
+      "title": "Tarea de lenguaje visoverbal",
+      "prefijo": "lvv",
+      "duracionBloque": 60,
+      "extension": "png",
+      "bloques": [
+        {
+          "activacion": 8,
+          "reposo": 7
+        },
+        {
+          "activacion": 8,
+          "reposo": 7
+        },
+        {
+          "activacion": 8,
+          "reposo": 7
+        },
+        {
+          "activacion": 8,
+          "reposo": 7
+        },
+        {
+          "activacion": 8,
+          "reposo": 7
+        }
+      ]
+    },
+    {
+      "id": "menv",
+      "title": "Tarea de memoria episódica no verbal",
+      "prefijo": "menv",
+      "duracionBloque": 40,
+      "extension": "png",
+      "bloques": [
+        {
+          "activacion": 10,
+          "reposo": 10
+        },
+        {
+          "activacion": 10,
+          "reposo": 10
+        },
+        {
+          "activacion": 10,
+          "reposo": 10
+        },
+        {
+          "activacion": 10,
+          "reposo": 10
+        },
+        {
+          "activacion": 10,
+          "reposo": 10
         }
       ]
     },
     {
       "id": "mev",
       "title": "Tarea de memoria episódica verbal",
-      "prefijo": "MEV",
-      "duracionBloque": 20,
-      "extension": "jpeg",
+      "prefijo": "mev",
+      "duracionBloque": 40,
+      "extension": "png",
       "bloques": [
         {
-          "cantidadImagenes": 4
+          "activacion": 5,
+          "reposo": 5
         },
         {
-          "cantidadImagenes": 4
+          "activacion": 5,
+          "reposo": 5
+        },
+        {
+          "activacion": 5,
+          "reposo": 5
+        }
+      ]
+    },
+    {
+      "id": "muni",
+      "title": "Tarea motora unilateral",
+      "prefijo": "muni",
+      "duracionBloque": 40,
+      "extension": "png",
+      "bloques": [
+        {
+          "activacion": 1,
+          "reposo": 1
+        },
+        {
+          "activacion": 1,
+          "reposo": 1
+        },
+        {
+          "activacion": 1,
+          "reposo": 1
+        },
+        {
+          "activacion": 1,
+          "reposo": 1
+        },
+        {
+          "activacion": 1,
+          "reposo": 1
         }
       ]
     }

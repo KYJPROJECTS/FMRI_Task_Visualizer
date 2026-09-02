@@ -1,7 +1,7 @@
 {
   "tasks": [
     {
-      "id": "motor",
+      "id": "muni",
       "title": "Tarea motora unilateral",
       "es": {
         "youtubeId": "RTsc1ZFW7Ng",
@@ -15,8 +15,8 @@
       }
     },
     {
-      "id": "lenguaje_historia",
-      "title": "Tarea de lenguaje: historia",
+      "id": "lh",
+      "title": "Tarea de lenguaje historia",
       "es": {
         "youtubeId": "itqLOKkPK7o",
         "explainerYoutubeId": "OpRlISuAU80",
@@ -29,7 +29,7 @@
       }
     },
     {
-      "id": "viso_verbal",
+      "id": "lvv",
       "title": "Tarea de lenguaje visoverbal",
       "es": {
         "youtubeId": "GAqq7h9AbYg",

@@ -234,32 +234,33 @@ function buildSchedule(task, numBlocks, blockDurationSeconds) {
 
   blocksToUse.forEach((bloque, blockIdx) => {
     const blockNumber = blockIdx + 1;
-    const count = bloque.cantidadImagenes;
+    const actCount = bloque.activacion;
+    const restCount = bloque.reposo;
 
     const blockDuration = jitteredBlockDuration(blockDurationSeconds);
     const actTotal = blockDuration * STIMULUS_RATIO;
     const restTotal = blockDuration * (1 - STIMULUS_RATIO);
-    const actDuration = actTotal / count;
-    const restDuration = restTotal / count;
+    const actDuration = actTotal / actCount;
+    const restDuration = restTotal / restCount;
 
-    for (let i = 1; i <= count; i++) {
+    for (let i = 1; i <= restCount; i++) {
       builtSteps.push({
         type: "reposo",
-        src: buildImagePath(task.prefijo, blockNumber, "reposo", i, task.extension || "jpg"),
+        src: buildImagePath(task.prefijo, blockNumber, "reposo", i, task.extension || "png"),
         duration: restDuration,
         bloque: blockNumber,
         imgIndex: i,
-        imgCount: count,
+        imgCount: restCount,
       });
     }
-    for (let i = 1; i <= count; i++) {
+    for (let i = 1; i <= actCount; i++) {
       builtSteps.push({
         type: "activación",
-        src: buildImagePath(task.prefijo, blockNumber, "activacion", i, task.extension || "jpg"),
+        src: buildImagePath(task.prefijo, blockNumber, "activacion", i, task.extension || "png"),
         duration: actDuration,
         bloque: blockNumber,
         imgIndex: i,
-        imgCount: count,
+        imgCount: actCount,
       });
     }
 
@@ -277,8 +278,8 @@ function buildSchedule(task, numBlocks, blockDurationSeconds) {
 }
 
 function buildImagePath(prefijo, blockNumber, type, imageIndex, extension) {
-  const typeCode = type === "reposo" ? "R" : "A";
-  return `imagenes/${prefijo}_B${blockNumber}_${typeCode}${imageIndex}.${extension}`;
+  const typeCode = type === "reposo" ? "r" : "a";
+  return `images/${prefijo}/${prefijo}_b${blockNumber}_${typeCode}${imageIndex}.${extension}`;
 }
 
 // ================== ORQUESTACIÓN: calcula y refleja el resultado en la UI ==================
