@@ -216,7 +216,12 @@ function loadAndPreloadCurrentTask() {
 function rebuildAndReload() {
   rebuildSchedule();
   stopPlayback();
-  loadVisualForStep(0);
+  btnPlayPause.disabled = true;
+  preloadImages(() => {
+    imagesPreloaded = true;
+    btnPlayPause.disabled = false;
+    loadVisualForStep(0);
+  });
 }
 
 // ================== CONSTRUCCIÓN DE PASOS (lógica pura, sin tocar el DOM) ==================
