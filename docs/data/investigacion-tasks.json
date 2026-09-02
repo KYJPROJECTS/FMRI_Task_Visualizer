@@ -5,7 +5,7 @@
       "title": "Tarea de lenguaje: historia",
       "prefijo": "LH",
       "duracionBloque": 20,
-      "extension": "jpg",
+      "extension": "jpeg",
       "bloques": [
         {
           "cantidadImagenes": 5
@@ -23,7 +23,7 @@
       "title": "Tarea de memoria episódica verbal",
       "prefijo": "MEV",
       "duracionBloque": 20,
-      "extension": "jpg",
+      "extension": "jpeg",
       "bloques": [
         {
           "cantidadImagenes": 4
