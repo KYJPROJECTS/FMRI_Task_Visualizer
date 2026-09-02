@@ -136,6 +136,22 @@
           "reposo": 1
         }
       ]
+    },
+    {
+      "id": "menv",
+      "title": "Tarea de memoria episódica no verbal",
+      "prefijo": "MENV",
+      "duracionBloque": 20,
+      "extension": "jpg",
+      "ordenAleatorio": true,
+      "bloques": [
+        { "cantidadImagenes": 10 },
+        { "cantidadImagenes": 10 },
+        { "cantidadImagenes": 10 },
+        { "cantidadImagenes": 10 },
+        { "cantidadImagenes": 10 }
+      ]
     }
+    
   ]
 }
