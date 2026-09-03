@@ -2,33 +2,128 @@
 <html lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Investigación — FMRI Assistant</title>
-    <link rel="icon" type="image/png" href="assets/logo.png">
-    <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Investigación — FMRI Assistant</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
-    <nav class="navbar">
-        <div class="nav-left">
-            <a href="index.html" class="nav-brand">
-                <img src="assets/logo.png" alt="Logo de FMRI Assistant" class="nav-logo">
-                FMRI ASSISTANT
-            </a>
-            <a href="nueva-sesion.html" class="nav-link">Nueva sesión</a>
-            <a href="investigacion.html" class="nav-link active">Investigación</a>
-        </div>
-    </nav>
+  <nav class="navbar">
+    <div class="nav-left">
+      <a href="index.html" class="nav-brand">
+        <img src="assets/logo.png" alt="Logo de FMRI Assistant" class="nav-logo">
+        FMRI ASSISTANT
+      </a>
+      <a href="nueva-sesion.html" class="nav-link">Nueva sesión</a>
+      <a href="investigacion.html" class="nav-link active">Investigación</a>
+    </div>
+  </nav>
 
-    <section class="view">
-        <div class="hero">
-            <h1>Investigación</h1>
-            <p>Próximamente</p>
-        </div>
-    </section>
+  <section class="view">
+    <div class="session-layout">
 
+      <!-- Panel izquierdo: escenario donde se muestran las imágenes -->
+      <div class="panel player-panel">
+
+        <div class="now-playing" id="now-playing">
+          <strong id="current-block-label">Selecciona una tarea para comenzar</strong>
+          <span id="progress-label"></span>
+        </div>
+
+        <div class="player-section" id="stage-container">
+          <img id="stage-image" class="stage-image" alt="Imagen de estímulo" hidden>
+
+          <div class="custom-controls" id="custom-controls">
+            <div class="progress-bar-container" id="progress-bar-container">
+              <div class="progress-bar-filled" id="progress-bar-filled"></div>
+            </div>
+            <div class="controls-buttons">
+              <button id="btn-play-pause-inv" class="control-btn" disabled title="Reproducir/Pausar">▶</button>
+              <button id="btn-reset-inv" class="control-btn" disabled title="Reiniciar">⟲</button>
+              <button id="btn-skip-step-inv" class="control-btn" disabled title="Terminar este paso ahora">⏭</button>
+              <button id="btn-extend-step-inv" class="control-btn" disabled title="Extender este paso 5s">+5s</button>
+              <button id="btn-fullscreen-inv" class="control-btn" disabled title="Pantalla completa">⛶</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Panel derecho: configuración -->
+      <div class="panel builder-panel">
+        <h3>Configuración de tiempos</h3>
+
+        <div class="settings-row">
+          <div class="mode-selector" id="mode-selector">
+            <span class="mode-label">¿Qué parámetros quieres fijar?</span>
+            <label class="mode-option">
+              <input type="radio" name="calc-mode" value="blocks-block" checked>
+              Número de bloques + Duración de bloque
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="calc-mode" value="total-blocks">
+              Duración total + Número de bloques
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="calc-mode" value="total-block">
+              Duración total + Duración de bloque
+            </label>
+          </div>
+
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-jitter" checked>
+            Variar duración entre bloques
+          </label>
+          <p class="hint">Evita un patrón exactamente periódico entre bloques.</p>
+        </div>
+
+        <div class="tasks-dropdown">
+          <label for="task-select-inv" class="hint">Tarea</label>
+          <select id="task-select-inv">
+            <option value="" disabled selected>-- Elige una tarea --</option>
+          </select>
+        </div>
+
+        <div class="params-grid" id="params-grid">
+          <div class="tasks-dropdown">
+            <label for="total-duration-input" class="hint">Duración total (segundos)</label>
+            <input type="number" id="total-duration-input" step="1" disabled>
+          </div>
+          <div class="tasks-dropdown">
+            <label for="num-blocks-input" class="hint">Número de bloques</label>
+            <input type="number" id="num-blocks-input" step="1" min="1" disabled>
+            <p class="hint" id="num-blocks-hint"></p>
+          </div>
+          <div class="tasks-dropdown">
+            <label for="block-duration-input" class="hint">Duración de bloque (segundos)</label>
+            <input type="number" id="block-duration-input" step="0.5" disabled>
+          </div>
+          <div class="tasks-dropdown">
+            <label class="hint">Duración de estímulo (50/50, calculado)</label>
+            <input type="text" id="stimulus-duration-display" disabled>
+          </div>
+        </div>
+        <p class="hint" id="params-warning"></p>
+
+        <button id="btn-regenerate-inv" class="btn-secondary" disabled>Regenerar distribución</button>
+
+        <ul class="task-list" id="stats-list">
+          <li><span class="task-title">Tiempo por imagen (activación)</span><span id="stat-act-per-image"
+              class="task-duration">—</span></li>
+          <li><span class="task-title">Tiempo por imagen (reposo)</span><span id="stat-rest-per-image"
+              class="task-duration">—</span></li>
+          <li><span class="task-title">Tiempo total de la tarea</span><span id="stat-total-time"
+              class="task-duration">—</span></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <script src="js/investigacion.js"></script>
 </body>
 
 </html>
