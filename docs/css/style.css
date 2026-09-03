@@ -18,6 +18,10 @@
   --color-success: #10b981;
 }
 
+html {
+  font-size: clamp(15px, 0.6vw + 9px, 21px);
+}
+
 body {
   font-family: 'Segoe UI', Arial, sans-serif;
   color: var(--color-text);
@@ -127,13 +131,18 @@ body {
   background-color: #d5e8e8;
 }
 
+.btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ---- Layout: video grande a la izquierda, organizador a la derecha ---- */
 .session-layout {
-  max-width: 1300px;
+  max-width: min(1800px, 94vw);
   margin: 1.5rem auto;
   padding: 0 1.5rem;
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr minmax(340px, 26%);
   gap: 1.5rem;
   align-items: start;
 }
@@ -154,6 +163,16 @@ body {
 .builder-panel h3 {
   color: var(--color-primary);
   font-size: 1rem;
+}
+
+.sequence-total {
+  font-size: 0.85rem;
+  color: #556;
+  margin-top: -0.4rem;
+}
+
+.sequence-total strong {
+  color: var(--color-primary);
 }
 
 .tasks-dropdown {
@@ -298,28 +317,12 @@ body {
   overflow: hidden;
 }
 
-.player-section:fullscreen {
-  padding-top: 0;
-  height: 100%;
-}
-
 #youtube-player {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-}
-
-.video-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  cursor: pointer;
-  background: transparent;
 }
 
 .rest-screen {
@@ -351,64 +354,12 @@ body {
   background-color: rgba(255, 255, 255, 0.3);
 }
 
-.custom-controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  z-index: 3;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
-  padding: 0.75rem 1rem 0.5rem;
-  transition: opacity 0.3s ease;
-}
-
-.custom-controls.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.progress-bar-container {
-  width: 100%;
-  height: 5px;
-  background-color: rgba(255, 255, 255, 0.25);
-  border-radius: 999px;
-  margin-bottom: 0.6rem;
-  cursor: pointer;
-}
-
-.progress-bar-filled {
-  height: 100%;
-  width: 0%;
-  background-color: var(--color-danger);
-  border-radius: 999px;
-  pointer-events: none;
-}
-
-.controls-buttons {
+/* ---- Barra de navegación entre tareas (fuera del reproductor de YouTube) ---- */
+.task-nav-bar {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   justify-content: center;
-  flex-wrap: wrap;
-}
-
-.control-btn {
-  padding: 0.45rem 0.9rem;
-  font-size: 1rem;
-  border: none;
-  border-radius: 6px;
-  background-color: rgba(255, 255, 255, 0.15);
-  color: white;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.control-btn:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-.control-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  margin-top: 0.75rem;
 }
 
 @media (max-width: 900px) {

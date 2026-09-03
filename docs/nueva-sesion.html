@@ -33,28 +33,16 @@
 
                 <div class="player-section" id="player-container">
                     <div id="youtube-player"></div>
-                    <div class="video-overlay" id="video-overlay"></div>
 
                     <div class="rest-screen" id="rest-screen" hidden>
                         <button id="btn-continue-next" class="btn-rest-next">Siguiente tarea</button>
                     </div>
+                </div>
 
-                    <div class="custom-controls" id="custom-controls">
-                        <div class="progress-bar-container" id="progress-bar-container">
-                            <div class="progress-bar-filled" id="progress-bar-filled"></div>
-                        </div>
-                        <div class="controls-buttons">
-                            <button id="btn-prev-task" class="control-btn" disabled title="Tarea anterior">⏮</button>
-                            <button id="btn-rewind" class="control-btn" disabled title="Retroceder 10s">⏮ 10s</button>
-                            <button id="btn-play-pause" class="control-btn" disabled
-                                title="Reproducir/Pausar (barra espaciadora)">▶</button>
-                            <button id="btn-forward" class="control-btn" disabled title="Adelantar 10s">10s ⏭</button>
-                            <button id="btn-restart" class="control-btn" disabled title="Reiniciar video">⟲</button>
-                            <button id="btn-next-task" class="control-btn" disabled title="Siguiente tarea">⏭</button>
-                            <button id="btn-fullscreen" class="control-btn" disabled
-                                title="Pantalla completa">⛶</button>
-                        </div>
-                    </div>
+                <div class="task-nav-bar">
+                    <button id="btn-prev-task" class="btn-secondary" disabled title="Tarea anterior">⏮ Anterior</button>
+                    <button id="btn-next-task" class="btn-secondary" disabled title="Siguiente tarea">Siguiente
+                        ⏭</button>
                 </div>
             </div>
 
@@ -85,6 +73,7 @@
                 </div>
 
                 <h3>Secuencia de la sesión</h3>
+                <p class="sequence-total" id="sequence-total-duration"></p>
                 <ol id="sequence-list" class="sequence-list"></ol>
                 <p id="sequence-empty-hint" class="hint">Arrastra tareas aquí para armar la secuencia. La primera se
                     carga

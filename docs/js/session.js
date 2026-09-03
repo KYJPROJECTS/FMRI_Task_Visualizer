@@ -9,9 +9,6 @@ let language = "es";
 
 let player;
 let isPlayerReady = false;
-let progressInterval;
-let hideControlsTimeout;
-let isDraggingProgress = false;
 
 // ================== DOM ==================
 const btnToggleTasks = document.getElementById("btn-toggle-tasks");
@@ -28,26 +25,48 @@ const nowPlaying = document.getElementById("now-playing");
 const currentTaskName = document.getElementById("current-task-name");
 const progressLabel = document.getElementById("progress-label");
 
-const playerContainer = document.getElementById("player-container");
-const videoOverlay = document.getElementById("video-overlay");
-const customControls = document.getElementById("custom-controls");
 const restScreen = document.getElementById("rest-screen");
 const btnContinueNext = document.getElementById("btn-continue-next");
 
-const btnPlayPause = document.getElementById("btn-play-pause");
-const btnRewind = document.getElementById("btn-rewind");
-const btnForward = document.getElementById("btn-forward");
-const btnRestart = document.getElementById("btn-restart");
-const btnFullscreen = document.getElementById("btn-fullscreen");
 const btnPrevTask = document.getElementById("btn-prev-task");
 const btnNextTask = document.getElementById("btn-next-task");
-
-const progressBarContainer = document.getElementById("progress-bar-container");
-const progressBarFilled = document.getElementById("progress-bar-filled");
 
 // ================== UTILIDADES ==================
 function whenReady(fn) {
   return (...args) => { if (isPlayerReady) fn(...args); };
+}
+
+// Convierte "MM:SS" a segundos totales. Devuelve 0 si el formato no es válido
+// (por ejemplo, si todavía queda un placeholder "MM:SS" sin completar).
+function durationToSeconds(mmss) {
+  if (!mmss) return 0;
+  const parts = mmss.split(":").map((p) => parseInt(p, 10));
+  if (parts.length !== 2 || parts.some(isNaN)) return 0;
+  return parts[0] * 60 + parts[1];
+}
+
+// Convierte segundos totales de vuelta a "MM:SS", con padding de ceros.
+function secondsToDuration(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// Duración que se muestra en las listas, usando exclusivamente los valores
+// escritos a mano en tasks.json (duration / explainerDuration).
+function getDisplayDuration(def) {
+  const taskSeconds = durationToSeconds(def.duration);
+  const explainerSeconds = durationToSeconds(def.explainerDuration);
+
+  if (!explainersEnabled || !explainerSeconds) {
+    return { text: secondsToDuration(taskSeconds), tooltip: "" };
+  }
+
+  const total = taskSeconds + explainerSeconds;
+  return {
+    text: secondsToDuration(total),
+    tooltip: `${def.explainerDuration} explicativo + ${def.duration} tarea`,
+  };
 }
 
 // Devuelve título, duración, youtubeId y explainerYoutubeId de una tarea,
@@ -62,9 +81,32 @@ function resolveTaskDef(taskId) {
   return {
     title: task.title,
     duration: langData.duration,
+    explainerDuration: langData.explainerDuration,
     youtubeId: langData.youtubeId,
     explainerYoutubeId: langData.explainerYoutubeId,
   };
+}
+
+// Suma la duración de todas las tareas en la secuencia actual, incluyendo
+// los explicativos si el interruptor está activado.
+function computeSequenceTotalSeconds() {
+  return sequence.reduce((total, taskId) => {
+    const def = resolveTaskDef(taskId);
+    const taskSeconds = durationToSeconds(def.duration);
+    const explainerSeconds = explainersEnabled ? durationToSeconds(def.explainerDuration) : 0;
+    return total + taskSeconds + explainerSeconds;
+  }, 0);
+}
+
+function updateSequenceTotalLabel() {
+  const el = document.getElementById("sequence-total-duration");
+  if (!el) return;
+  if (sequence.length === 0) {
+    el.textContent = "";
+    return;
+  }
+  const total = computeSequenceTotalSeconds();
+  el.innerHTML = `Duración total estimada: <strong>${secondsToDuration(total)}</strong>`;
 }
 
 // ================== CATÁLOGO DE TAREAS ==================
@@ -79,6 +121,7 @@ fetch("data/tasks.json")
     console.error("Error cargando tasks.json:", err);
   });
 
+// ================== MOSTRAR / OCULTAR TAREAS DISPONIBLES ==================
 btnToggleTasks.addEventListener("click", () => {
   const isHidden = availableTasksPanel.hidden;
   availableTasksPanel.hidden = !isHidden;
@@ -88,7 +131,8 @@ btnToggleTasks.addEventListener("click", () => {
 // ================== INTERRUPTOR DE EXPLICATIVOS ==================
 toggleExplainers.addEventListener("change", () => {
   explainersEnabled = toggleExplainers.checked;
-  // Si hay una tarea cargada pero en pausa (no reproduciéndose), refleja el cambio de inmediato.
+  refreshAllDurations();
+  updateSequenceTotalLabel();
   if (currentTaskId && !isTaskCurrentlyPlaying(currentTaskId)) {
     loadTask(currentTaskId);
   }
@@ -100,6 +144,7 @@ handednessButtons.forEach((btn) => {
     handedness = btn.dataset.hand;
     handednessButtons.forEach((b) => b.classList.toggle("active", b === btn));
     refreshAllDurations();
+    updateSequenceTotalLabel();
     reloadIfPausedAndAffected();
   });
 });
@@ -110,6 +155,7 @@ languageButtons.forEach((btn) => {
     language = btn.dataset.lang;
     languageButtons.forEach((b) => b.classList.toggle("active", b === btn));
     refreshAllDurations();
+    updateSequenceTotalLabel();
     reloadIfPausedAndAffected();
   });
 });
@@ -121,18 +167,23 @@ function reloadIfPausedAndAffected() {
   }
 }
 
-// Actualiza la duración mostrada de TODAS las tareas en ambas listas,
-// sin reconstruir el resto del DOM. El idioma puede cambiar la duración
-// de cualquier tarea; la lateralidad solo afecta a la que tiene variantes (MENV).
+// Actualiza la duración mostrada de TODAS las tareas en ambas listas.
 function refreshAllDurations() {
   allTasks.forEach((task) => {
     const def = resolveTaskDef(task.id);
+    const display = getDisplayDuration(def);
 
-    const availDuration = availableTasksList.querySelector(`li[data-task-id="${task.id}"] .task-duration`);
-    if (availDuration) availDuration.textContent = def.duration;
+    const availDurationEl = availableTasksList.querySelector(`li[data-task-id="${task.id}"] .task-duration`);
+    if (availDurationEl) {
+      availDurationEl.textContent = display.text;
+      availDurationEl.title = display.tooltip;
+    }
 
-    const seqDuration = sequenceList.querySelector(`.sequence-item[data-task-id="${task.id}"] .task-duration`);
-    if (seqDuration) seqDuration.textContent = def.duration;
+    const seqDurationEl = sequenceList.querySelector(`.sequence-item[data-task-id="${task.id}"] .task-duration`);
+    if (seqDurationEl) {
+      seqDurationEl.textContent = display.text;
+      seqDurationEl.title = display.tooltip;
+    }
   });
 }
 
@@ -141,11 +192,14 @@ function renderAvailableTasks() {
   availableTasksList.innerHTML = "";
   allTasks.forEach((task) => {
     const def = resolveTaskDef(task.id);
+    const display = getDisplayDuration(def);
+
     const li = document.createElement("li");
+    li.draggable = true;
     li.dataset.taskId = task.id;
     li.innerHTML = `
       <span class="task-title">${def.title}</span>
-      <span class="task-duration">${def.duration}</span>
+      <span class="task-duration" title="${display.tooltip}">${display.text}</span>
       <button class="task-action-btn btn-add" type="button" title="Agregar a la secuencia">+</button>
     `;
 
@@ -188,6 +242,8 @@ function removeTaskFromSequence(taskId) {
 // ================== SECUENCIA (drag & drop + botones) ==================
 function createSequenceItem(taskId) {
   const def = resolveTaskDef(taskId);
+  const display = getDisplayDuration(def);
+
   const li = document.createElement("li");
   li.className = "sequence-item";
   li.draggable = true;
@@ -195,7 +251,7 @@ function createSequenceItem(taskId) {
   li.innerHTML = `
     <span class="drag-handle">⠿</span>
     <span class="task-title">${def.title}</span>
-    <span class="task-duration">${def.duration}</span>
+    <span class="task-duration" title="${display.tooltip}">${display.text}</span>
     <div class="move-buttons">
       <button class="btn-move btn-move-up" type="button" title="Subir">▲</button>
       <button class="btn-move btn-move-down" type="button" title="Bajar">▼</button>
@@ -278,10 +334,10 @@ function syncSequenceFromDOM() {
     currentTaskId = null;
     nowPlaying.hidden = true;
     restScreen.hidden = true;
-    [btnPlayPause, btnRewind, btnForward, btnRestart, btnFullscreen, btnPrevTask, btnNextTask].forEach(
-      (b) => (b.disabled = true)
-    );
+    btnPrevTask.disabled = true;
+    btnNextTask.disabled = true;
     if (isPlayerReady) player.stopVideo();
+    updateSequenceTotalLabel();
     return;
   }
 
@@ -292,6 +348,7 @@ function syncSequenceFromDOM() {
     updateNavButtonsState();
   }
   updateSequenceUI();
+  updateSequenceTotalLabel();
 }
 
 function isTaskCurrentlyPlaying(taskId) {
@@ -327,7 +384,6 @@ function loadTask(taskId) {
   if (isPlayerReady) player.cueVideoById(videoId);
   updateNowPlayingLabel();
   updateNavButtonsState();
-  [btnPlayPause, btnRewind, btnForward, btnRestart, btnFullscreen].forEach((b) => (b.disabled = false));
   updateSequenceUI();
 }
 
@@ -365,19 +421,17 @@ btnContinueNext.addEventListener("click", whenReady(() => {
   btnContinueNext.blur();
 }));
 
-// ================== PLAYER DE YOUTUBE ==================
+// ================== PLAYER DE YOUTUBE (con sus controles nativos) ==================
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("youtube-player", {
     height: "100%",
     width: "100%",
     playerVars: {
-      controls: 0,
+      controls: 1,        // controles nativos de YouTube, visibles
       rel: 0,
       modestbranding: 1,
-      disablekb: 1,
-      fs: 0,
       iv_load_policy: 3,
-      cc_load_policy: 0,
+      cc_load_policy: 0,  // subtítulos apagados por defecto; el usuario los activa manualmente si quiere
     },
     events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange, onError: onPlayerError },
   });
@@ -397,21 +451,12 @@ function onPlayerStateChange(event) {
   updateSequenceUI();
 
   if (event.data === YT.PlayerState.PLAYING) {
-    btnPlayPause.textContent = "⏸";
     restScreen.hidden = true;
-    startProgressTracking();
-  } else if (event.data === YT.PlayerState.PAUSED) {
-    btnPlayPause.textContent = "▶";
-    stopProgressTracking();
   } else if (event.data === YT.PlayerState.ENDED) {
-    btnPlayPause.textContent = "▶";
-    stopProgressTracking();
-
     if (currentSegment === "explainer") {
-      // Transición automática, sin pausa: del explicativo directo al video del paradigma.
       const def = resolveTaskDef(currentTaskId);
       currentSegment = "main";
-      player.loadVideoById(def.youtubeId); // loadVideoById reproduce de inmediato
+      player.loadVideoById(def.youtubeId);
       updateNowPlayingLabel();
     } else {
       showRestScreen();
@@ -426,88 +471,18 @@ function showRestScreen() {
   restScreen.hidden = false;
 }
 
-// ================== REPRODUCIR / PAUSAR ==================
+// ================== ATAJO DE BARRA ESPACIADORA (opcional) ==================
+// No es un control visual — es solo un atajo de teclado. Si prefieres depender
+// 100% del comportamiento nativo de YouTube, borra este bloque completo.
 function togglePlayPause() {
   const state = player.getPlayerState();
   state === YT.PlayerState.PLAYING ? player.pauseVideo() : player.playVideo();
 }
 
-btnPlayPause.addEventListener("click", whenReady(() => { togglePlayPause(); btnPlayPause.blur(); }));
-videoOverlay.addEventListener("click", whenReady(togglePlayPause));
-
 document.addEventListener("keydown", (event) => {
-  if (event.code !== "Space") return;
+  if (event.code !== "Space" || !isPlayerReady) return;
   const tag = document.activeElement.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA") return;
   event.preventDefault();
-  if (isPlayerReady) togglePlayPause();
+  togglePlayPause();
 });
-
-// ================== RETROCEDER / ADELANTAR / REINICIAR ==================
-btnRewind.addEventListener("click", whenReady(() => {
-  player.seekTo(Math.max(0, player.getCurrentTime() - 10), true);
-  btnRewind.blur();
-}));
-
-btnForward.addEventListener("click", whenReady(() => {
-  const duration = player.getDuration();
-  const target = player.getCurrentTime() + 10;
-  player.seekTo(duration > 0 ? Math.min(duration, target) : target, true);
-  btnForward.blur();
-}));
-
-btnRestart.addEventListener("click", whenReady(() => {
-  player.seekTo(0, true);
-  player.playVideo();
-  btnRestart.blur();
-}));
-
-// ================== BARRA DE PROGRESO (clic + arrastre) ==================
-function seekFromClientX(clientX) {
-  const rect = progressBarContainer.getBoundingClientRect();
-  const percentage = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-  const duration = player.getDuration();
-  if (duration > 0) {
-    player.seekTo(duration * percentage, true);
-    progressBarFilled.style.width = percentage * 100 + "%";
-  }
-}
-
-progressBarContainer.addEventListener("mousedown", whenReady((e) => {
-  isDraggingProgress = true;
-  seekFromClientX(e.clientX);
-}));
-
-document.addEventListener("mousemove", (e) => {
-  if (isDraggingProgress) seekFromClientX(e.clientX);
-});
-
-document.addEventListener("mouseup", () => {
-  isDraggingProgress = false;
-});
-
-function startProgressTracking() {
-  stopProgressTracking();
-  progressInterval = setInterval(() => {
-    if (!isPlayerReady || isDraggingProgress) return;
-    const current = player.getCurrentTime();
-    const duration = player.getDuration();
-    if (duration > 0) progressBarFilled.style.width = (current / duration) * 100 + "%";
-  }, 500);
-}
-function stopProgressTracking() { clearInterval(progressInterval); }
-
-// ================== PANTALLA COMPLETA ==================
-btnFullscreen.addEventListener("click", () => {
-  document.fullscreenElement ? document.exitFullscreen() : playerContainer.requestFullscreen();
-  btnFullscreen.blur();
-});
-
-// ================== AUTO-OCULTAR CONTROLES ==================
-function showControls() {
-  customControls.classList.remove("hidden");
-  clearTimeout(hideControlsTimeout);
-  hideControlsTimeout = setTimeout(() => customControls.classList.add("hidden"), 3000);
-}
-playerContainer.addEventListener("mousemove", showControls);
-playerContainer.addEventListener("mouseenter", showControls);
