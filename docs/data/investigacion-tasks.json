@@ -4,7 +4,7 @@
       "id": "lh",
       "title": "Tarea de lenguaje historia",
       "prefijo": "lh",
-      "duracionBloque": 40,
+      "duracionEstandarBloque": 20,
       "extension": "png",
       "bloques": [
         {
@@ -33,7 +33,7 @@
       "id": "lvv",
       "title": "Tarea de lenguaje visoverbal",
       "prefijo": "lvv",
-      "duracionBloque": 60,
+      "duracionEstandarBloque": 30,
       "extension": "png",
       "bloques": [
         {
@@ -62,7 +62,7 @@
       "id": "menv",
       "title": "Tarea de memoria episódica no verbal",
       "prefijo": "menv",
-      "duracionBloque": 40,
+      "duracionEstandarBloque": 20,
       "extension": "png",
       "bloques": [
         {
@@ -91,7 +91,7 @@
       "id": "mev",
       "title": "Tarea de memoria episódica verbal",
       "prefijo": "mev",
-      "duracionBloque": 40,
+      "duracionEstandarBloque": 20,
       "extension": "png",
       "bloques": [
         {
@@ -112,7 +112,7 @@
       "id": "muni",
       "title": "Tarea motora unilateral",
       "prefijo": "muni",
-      "duracionBloque": 40,
+      "duracionEstandarBloque": 20,
       "extension": "png",
       "bloques": [
         {
@@ -136,22 +136,6 @@
           "reposo": 1
         }
       ]
-    },
-    {
-      "id": "menv",
-      "title": "Tarea de memoria episódica no verbal",
-      "prefijo": "MENV",
-      "duracionBloque": 20,
-      "extension": "jpg",
-      "ordenAleatorio": true,
-      "bloques": [
-        { "cantidadImagenes": 10 },
-        { "cantidadImagenes": 10 },
-        { "cantidadImagenes": 10 },
-        { "cantidadImagenes": 10 },
-        { "cantidadImagenes": 10 }
-      ]
     }
-    
   ]
 }

@@ -1,23 +1,8 @@
-// ================== CONSTANTES CIENTÍFICAS ==================
-// La proporción estímulo:descanso queda fija en 50/50 — no es configurable.
-const STIMULUS_RATIO = 0.5;
-// Mínimo defendible: la señal BOLD llega a su meseta entre 6-9s tras el inicio
-// del estímulo (Bandettini & Cox, 2000); por debajo de 8s se mide una respuesta
-// parcial, no la meseta real.
-const MIN_STIMULUS_SECONDS = 8;
-// Su protocolo institucional ya usa 10s/15s de estímulo — por debajo de eso
-// sigue siendo defendible, pero se avisa por quedar bajo el estándar propio.
-const RECOMMENDED_MIN_STIMULUS_SECONDS = 10;
-const MAX_STIMULUS_SECONDS = 50;
-
-const JITTER_PERCENT = 15;
-
 // ================== ESTADO ==================
 let allTasks = [];
-let currentTask = null;
-let steps = [];
-let cumulativeStarts = [];
-let totalTaskMs = 0;
+let sequence = []; // array de instancias: { instanceId, taskId, label, numBlocks, blockDuration, stimuliPerBlock, schedule }
+let currentInstanceId = null;
+let nextInstanceNumber = 1;
 
 let currentStepIndex = -1;
 let playStartTimestamp = 0;
@@ -26,26 +11,29 @@ let tickInterval = null;
 let isPlaying = false;
 let imagesPreloaded = false;
 
-let calcMode = "blocks-block";
-let jitterEnabled = true;
-
-// Los tres parámetros "canónicos": duración total, número de bloques, duración de bloque.
-// Con proporción fija, duración de estímulo = duración de bloque / 2, siempre.
-let paramState = { totalDuration: 100, numBlocks: 5, blockDuration: 20 };
-
 // ================== DOM ==================
 const taskSelect = document.getElementById("task-select-inv");
-const modeRadios = document.querySelectorAll('input[name="calc-mode"]');
-const toggleJitter = document.getElementById("toggle-jitter");
-
-const totalDurationInput = document.getElementById("total-duration-input");
 const numBlocksInput = document.getElementById("num-blocks-input");
 const numBlocksHint = document.getElementById("num-blocks-hint");
 const blockDurationInput = document.getElementById("block-duration-input");
-const stimulusDurationDisplay = document.getElementById("stimulus-duration-display");
-const paramsWarning = document.getElementById("params-warning");
+const stimuliPerBlockInput = document.getElementById("stimuli-per-block-input");
+const stimuliPerBlockHint = document.getElementById("stimuli-per-block-hint");
+const statStimulusTime = document.getElementById("stat-stimulus-time");
+const statTaskTotalTime = document.getElementById("stat-task-total-time");
+const btnAddInstance = document.getElementById("btn-add-instance");
 
-const btnRegenerate = document.getElementById("btn-regenerate-inv");
+const sequenceList = document.getElementById("sequence-list-inv");
+const sequenceEmptyHint = document.getElementById("sequence-empty-hint-inv");
+const sequenceTotalLabel = document.getElementById("sequence-total-duration-inv");
+
+const nowPlaying = document.getElementById("now-playing-inv");
+const currentInstanceName = document.getElementById("current-instance-name-inv");
+const progressLabel = document.getElementById("progress-label-inv");
+
+const stageContainer = document.getElementById("stage-container");
+const stageImage = document.getElementById("stage-image");
+const restScreen = document.getElementById("rest-screen-inv");
+const btnContinueNext = document.getElementById("btn-continue-next-inv");
 
 const btnPlayPause = document.getElementById("btn-play-pause-inv");
 const btnReset = document.getElementById("btn-reset-inv");
@@ -53,18 +41,11 @@ const btnSkipStep = document.getElementById("btn-skip-step-inv");
 const btnExtendStep = document.getElementById("btn-extend-step-inv");
 const btnFullscreen = document.getElementById("btn-fullscreen-inv");
 
-const stageContainer = document.getElementById("stage-container");
-const stageImage = document.getElementById("stage-image");
-const currentBlockLabel = document.getElementById("current-block-label");
-const progressLabel = document.getElementById("progress-label");
 const progressBarFilled = document.getElementById("progress-bar-filled");
-const statActPerImage = document.getElementById("stat-act-per-image");
-const statRestPerImage = document.getElementById("stat-rest-per-image");
-const statTotalTime = document.getElementById("stat-total-time");
 
 // ================== CATÁLOGO DE TAREAS ==================
 fetch("data/investigacion-tasks.json")
-  .then((res) => res.json())
+  .then((r) => r.json())
   .then((data) => {
     allTasks = data.tasks;
     allTasks.forEach((task) => {
@@ -76,338 +57,329 @@ fetch("data/investigacion-tasks.json")
   })
   .catch((err) => console.error("No se pudo cargar investigacion-tasks.json:", err));
 
+// ================== UTILIDADES ==================
+function formatSeconds(totalSeconds) {
+  const rounded = Math.round(totalSeconds * 100) / 100;
+  return rounded.toFixed(2) + "s";
+}
+
+function getTaskLimits(task) {
+  const maxCycles = task.bloques.length;
+  const maxBlocksReal = maxCycles * 2;
+  const maxStimuliPerBlock = Math.min(...task.bloques.map((b) => Math.min(b.activacion, b.reposo)));
+  return { maxCycles, maxBlocksReal, maxStimuliPerBlock };
+}
+
+// ================== SELECCIÓN DE TAREA BASE: prellenar con el estándar ==================
 taskSelect.addEventListener("change", () => {
-  currentTask = allTasks.find((t) => t.id === taskSelect.value);
-  if (!currentTask) return;
+  const task = allTasks.find((t) => t.id === taskSelect.value);
+  if (!task) return;
 
-  // Al elegir tarea, arrancamos siempre en el modo "bloques + duración de bloque",
-  // con los valores que ya tenían definidos como estándar para esa tarea.
-  calcMode = "blocks-block";
-  document.querySelector('input[name="calc-mode"][value="blocks-block"]').checked = true;
+  const { maxBlocksReal, maxStimuliPerBlock } = getTaskLimits(task);
+  const standardBlocks = Math.min(10, maxBlocksReal); // estándar: 10 bloques (5 ciclos), acotado a lo disponible
 
-  const maxBlocks = currentTask.bloques.length;
-  numBlocksInput.max = maxBlocks;
-  numBlocksHint.textContent = `Máximo ${maxBlocks} bloques: es cuántos hay con imágenes preparadas para esta tarea.`;
+  numBlocksInput.disabled = false;
+  numBlocksInput.min = 6;
+  numBlocksInput.max = maxBlocksReal;
+  numBlocksInput.step = 2;
+  numBlocksInput.value = standardBlocks;
+  numBlocksHint.textContent = `Disponible: entre 6 y ${maxBlocksReal} bloques (siempre en pares reposo+activación).`;
 
-  paramState.numBlocks = maxBlocks;
-  paramState.blockDuration = currentTask.duracionBloque;
-  paramState.totalDuration = paramState.numBlocks * paramState.blockDuration;
+  blockDurationInput.disabled = false;
+  blockDurationInput.value = task.duracionEstandarBloque;
 
-  [totalDurationInput, numBlocksInput, blockDurationInput].forEach((el) => (el.disabled = false));
-  btnFullscreen.disabled = false;
+  const isFixedStimuli = maxStimuliPerBlock === 1;
+  stimuliPerBlockInput.disabled = isFixedStimuli;
+  stimuliPerBlockInput.min = 1;
+  stimuliPerBlockInput.max = maxStimuliPerBlock;
+  stimuliPerBlockInput.value = maxStimuliPerBlock; // estándar: usar todas las imágenes preparadas
+  stimuliPerBlockHint.textContent = isFixedStimiuli(isFixedStimuli);
 
-  applyMode();
-  syncInputsFromState();
-  loadAndPreloadCurrentTask();
+  btnAddInstance.disabled = false;
+  recomputePreview();
 });
 
-// ================== SELECTOR DE MODO ==================
-modeRadios.forEach((radio) => {
-  radio.addEventListener("change", () => {
-    if (!radio.checked) return;
-    calcMode = radio.value;
-    applyMode();
-  });
+function isFixedStimiuli(isFixed) {
+  return isFixed
+    ? "Esta tarea usa un solo estímulo por bloque (no configurable)."
+    : "";
+}
+
+[numBlocksInput, blockDurationInput, stimuliPerBlockInput].forEach((input) => {
+  input.addEventListener("input", recomputePreview);
 });
 
-// Habilita/deshabilita los campos según qué dos variables se pueden editar en este modo.
-function applyMode() {
-  totalDurationInput.disabled = calcMode === "blocks-block";
-  numBlocksInput.disabled = calcMode === "total-block";
-  blockDurationInput.disabled = calcMode === "total-blocks";
+// Recalcula solo la vista previa (tiempo por estímulo, tiempo total).
+// Sin advertencias ni bloqueos: los límites min/max de cada input ya
+// evitan que se escriban valores fuera de lo disponible.
+function recomputePreview() {
+  const numBlocks = parseInt(numBlocksInput.value, 10) || 0;
+  const blockDuration = parseFloat(blockDurationInput.value) || 0;
+  const stimuliPerBlock = parseInt(stimuliPerBlockInput.value, 10) || 1;
+
+  const stimulusSeconds = blockDuration / stimuliPerBlock;
+  const totalSeconds = numBlocks * blockDuration;
+
+  statStimulusTime.textContent = formatSeconds(stimulusSeconds);
+  statTaskTotalTime.textContent = formatSeconds(totalSeconds);
 }
 
-// ================== ENTRADAS EDITABLES → RECALCULAR EL TERCER VALOR ==================
-totalDurationInput.addEventListener("change", () => {
-  paramState.totalDuration = parseFloat(totalDurationInput.value) || paramState.totalDuration;
-  recomputeFromMode();
+// ================== AGREGAR INSTANCIA A LA SECUENCIA ==================
+btnAddInstance.addEventListener("click", () => {
+  const task = allTasks.find((t) => t.id === taskSelect.value);
+  if (!task) return;
+
+  const numBlocks = parseInt(numBlocksInput.value, 10);
+  const blockDuration = parseFloat(blockDurationInput.value);
+  const stimuliPerBlock = parseInt(stimuliPerBlockInput.value, 10);
+
+  const instance = {
+    instanceId: `inst-${nextInstanceNumber++}`,
+    taskId: task.id,
+    label: `${task.title} — ${numBlocks} bloques × ${blockDuration}s`,
+    numBlocks,
+    blockDuration,
+    stimuliPerBlock,
+  };
+  instance.schedule = buildSchedule(task, instance);
+
+  sequence.push(instance);
+  renderSequenceItem(instance);
+  syncSequenceState();
 });
 
-numBlocksInput.addEventListener("change", () => {
-  const maxBlocks = currentTask ? currentTask.bloques.length : Infinity;
-  const value = Math.min(maxBlocks, Math.max(1, parseInt(numBlocksInput.value, 10) || paramState.numBlocks));
-  paramState.numBlocks = value;
-  recomputeFromMode();
-});
-
-blockDurationInput.addEventListener("change", () => {
-  paramState.blockDuration = parseFloat(blockDurationInput.value) || paramState.blockDuration;
-  recomputeFromMode();
-});
-
-// A partir de los dos valores fijos del modo activo, calcula el tercero.
-function recomputeFromMode() {
-  if (calcMode === "blocks-block") {
-    paramState.totalDuration = paramState.numBlocks * paramState.blockDuration;
-  } else if (calcMode === "total-blocks") {
-    paramState.blockDuration = paramState.totalDuration / paramState.numBlocks;
-  } else if (calcMode === "total-block") {
-    const rawBlocks = paramState.totalDuration / paramState.blockDuration;
-    paramState.numBlocks = Math.round(rawBlocks);
-    // Si no divide exacto, ajustamos la duración total al múltiplo real más cercano
-    // en vez de dejar un residuo silencioso.
-    paramState.totalDuration = paramState.numBlocks * paramState.blockDuration;
-  }
-
-  syncInputsFromState();
-  if (currentTask) {
-    currentTask.duracionBloque = paramState.blockDuration;
-    rebuildAndReload();
-  }
+// ================== CONSTRUCCIÓN DEL SCHEDULE (sin jitter: duración fija siempre) ==================
+function buildImagePath(taskId, prefijo, cycleNumber, typeCode, imageIndex, extension) {
+  return `images/${taskId}/${prefijo}_b${cycleNumber}_${typeCode}${imageIndex}.${extension}`;
 }
 
-function syncInputsFromState() {
-  totalDurationInput.value = round2(paramState.totalDuration);
-  numBlocksInput.value = paramState.numBlocks;
-  blockDurationInput.value = round2(paramState.blockDuration);
+function buildSchedule(task, instance) {
+  const numCycles = instance.numBlocks / 2;
+  const steps = [];
 
-  const stimulusSeconds = paramState.blockDuration * STIMULUS_RATIO;
-  stimulusDurationDisplay.value = round2(stimulusSeconds) + "s";
-
-  validateStimulusDuration(stimulusSeconds);
-}
-
-// Aplica el piso científico: bloquea configuraciones por debajo de lo defendible,
-// y avisa (sin bloquear) si queda por debajo del estándar institucional propio.
-function validateStimulusDuration(stimulusSeconds) {
-  if (stimulusSeconds < MIN_STIMULUS_SECONDS) {
-    paramsWarning.textContent =
-      `⚠ ${round2(stimulusSeconds)}s de estímulo está por debajo del mínimo recomendado ` +
-      `(${MIN_STIMULUS_SECONDS}s) para que la señal BOLD alcance su meseta. Aumenta la duración de bloque.`;
-    return false;
-  }
-  if (stimulusSeconds < RECOMMENDED_MIN_STIMULUS_SECONDS) {
-    paramsWarning.textContent =
-      `Nota: ${round2(stimulusSeconds)}s de estímulo queda por debajo del estándar institucional (10s), ` +
-      `aunque sigue siendo estadísticamente defendible.`;
-    return true;
-  }
-  if (stimulusSeconds > MAX_STIMULUS_SECONDS) {
-    paramsWarning.textContent =
-      `Nota: ${round2(stimulusSeconds)}s de estímulo es un bloque largo — considera si es necesario para esta tarea.`;
-    return true;
-  }
-  paramsWarning.textContent = "";
-  return true;
-}
-
-// ================== JITTER ==================
-toggleJitter.addEventListener("change", () => {
-  jitterEnabled = toggleJitter.checked;
-  if (currentTask) rebuildAndReload();
-});
-
-btnRegenerate.addEventListener("click", () => {
-  if (currentTask) rebuildAndReload();
-});
-
-function loadAndPreloadCurrentTask() {
-  rebuildSchedule();
-  stopPlayback();
-  preloadImages(() => {
-    imagesPreloaded = true;
-    btnPlayPause.disabled = false;
-    btnReset.disabled = false;
-    btnRegenerate.disabled = false;
-    loadVisualForStep(0);
-  });
-}
-
-function rebuildAndReload() {
-  rebuildSchedule();
-  stopPlayback();
-  btnPlayPause.disabled = true;
-  preloadImages(() => {
-    imagesPreloaded = true;
-    btnPlayPause.disabled = false;
-    loadVisualForStep(0);
-  });
-}
-
-// ================== CONSTRUCCIÓN DE PASOS (lógica pura, sin tocar el DOM) ==================
-function jitteredBlockDuration(baseDuration) {
-  if (!jitterEnabled) return baseDuration;
-  const range = baseDuration * (JITTER_PERCENT / 100);
-  const offset = (Math.random() * 2 - 1) * range;
-  return baseDuration + offset;
-}
-
-// Mezcla un arreglo sin alterar el original (Fisher-Yates)
-function shuffleArray(array) {
-  const arr = array.slice();
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-// Junta las rutas reales de imágenes de los bloques en uso, para poder mezclarlas
-function buildImagePool(task, blocksToUse, type, extension) {
-  const pool = [];
-  blocksToUse.forEach((bloque, blockIdx) => {
-    const blockNumber = blockIdx + 1;
-    const count = type === "reposo" ? bloque.reposo : bloque.activacion;
-    for (let i = 1; i <= count; i++) {
-      pool.push(buildImagePath(task.prefijo, blockNumber, type, i, extension));
+  for (let cycle = 1; cycle <= numCycles; cycle++) {
+    const restPerImage = instance.blockDuration / instance.stimuliPerBlock;
+    for (let i = 1; i <= instance.stimuliPerBlock; i++) {
+      steps.push({
+        type: "reposo",
+        src: buildImagePath(task.id, task.prefijo, cycle, "r", i, task.extension || "png"),
+        duration: restPerImage,
+        cycle,
+        imgIndex: i,
+        imgCount: instance.stimuliPerBlock,
+      });
     }
-  });
-  return pool;
-}
-
-function buildSchedule(task, numBlocks, blockDurationSeconds) {
-  const builtSteps = [];
-  const perBlockStats = [];
-  const blocksToUse = task.bloques.slice(0, numBlocks);
-  const extension = task.extension || "jpg";
-  const randomized = !!task.ordenAleatorio;
-
-  // Si la tarea pide orden aleatorio: se arma una "bolsa" con TODAS las imágenes
-  // reales (de los bloques en uso), se mezclan sin repetir, y se reparten
-  // respetando cuántas necesita cada bloque — pueden cruzarse entre bloques.
-  let restPool, actPool, restCursor = 0, actCursor = 0;
-  if (randomized) {
-    restPool = shuffleArray(buildImagePool(task, blocksToUse, "reposo", extension));
-    actPool = shuffleArray(buildImagePool(task, blocksToUse, "activacion", extension));
+    const actPerImage = instance.blockDuration / instance.stimuliPerBlock; // misma duración que reposo, siempre
+    for (let i = 1; i <= instance.stimuliPerBlock; i++) {
+      steps.push({
+        type: "activación",
+        src: buildImagePath(task.id, task.prefijo, cycle, "a", i, task.extension || "png"),
+        duration: actPerImage,
+        cycle,
+        imgIndex: i,
+        imgCount: instance.stimuliPerBlock,
+      });
+    }
   }
 
-  blocksToUse.forEach((bloque, blockIdx) => {
-    const blockNumber = blockIdx + 1;
-    const actCount = bloque.activacion;
-    const restCount = bloque.reposo;
-    const blockDuration = jitteredBlockDuration(blockDurationSeconds);
-    const actTotal = blockDuration * STIMULUS_RATIO;
-    const restTotal = blockDuration * (1 - STIMULUS_RATIO);
-    const actDuration = actTotal / actCount;
-    const restDuration = restTotal / restCount;
-
-    for (let i = 1; i <= restCount; i++) {
-      const src = randomized
-        ? restPool[restCursor++]
-        : buildImagePath(task.prefijo, blockNumber, "reposo", i, extension);
-      builtSteps.push({ type: "reposo", src, duration: restDuration, bloque: blockNumber, imgIndex: i, imgCount: restCount });
-    }
-    for (let i = 1; i <= actCount; i++) {
-      const src = randomized
-        ? actPool[actCursor++]
-        : buildImagePath(task.prefijo, blockNumber, "activacion", i, extension);
-      builtSteps.push({ type: "activación", src, duration: actDuration, bloque: blockNumber, imgIndex: i, imgCount: actCount });
-    }
-    perBlockStats.push({ actDuration, restDuration, blockDuration });
-  });
-
-  const starts = [];
+  const cumulativeStarts = [];
   let acc = 0;
-  builtSteps.forEach((step) => {
-    starts.push(acc);
+  steps.forEach((step) => {
+    cumulativeStarts.push(acc);
     acc += step.duration * 1000;
   });
 
-  return { steps: builtSteps, cumulativeStarts: starts, totalTaskMs: acc, perBlockStats };
+  return { steps, cumulativeStarts, totalTaskMs: acc };
 }
 
-function buildImagePath(prefijo, blockNumber, type, imageIndex, extension) {
-  const typeCode = type === "reposo" ? "r" : "a";
-  return `images/${prefijo}/${prefijo}_b${blockNumber}_${typeCode}${imageIndex}.${extension}`;
+// ================== SECUENCIA: RENDER, REORDENAR, QUITAR ==================
+function renderSequenceItem(instance) {
+  const li = document.createElement("li");
+  li.className = "sequence-item";
+  li.dataset.instanceId = instance.instanceId;
+  li.innerHTML = `
+    <span class="task-title">${instance.label}</span>
+    <div class="move-buttons">
+      <button class="btn-move btn-move-up" type="button" title="Subir">▲</button>
+      <button class="btn-move btn-move-down" type="button" title="Bajar">▼</button>
+    </div>
+    <button class="task-action-btn btn-remove" type="button" title="Quitar">✕</button>
+  `;
+
+  li.querySelector(".btn-move-up").addEventListener("click", () => moveInstance(li, -1));
+  li.querySelector(".btn-move-down").addEventListener("click", () => moveInstance(li, 1));
+  li.querySelector(".task-action-btn").addEventListener("click", () => removeInstance(instance.instanceId));
+
+  sequenceList.appendChild(li);
 }
 
-// ================== ORQUESTACIÓN: calcula y refleja el resultado en la UI ==================
-function rebuildSchedule() {
-  const result = buildSchedule(currentTask, paramState.numBlocks, paramState.blockDuration);
-  steps = result.steps;
-  cumulativeStarts = result.cumulativeStarts;
-  totalTaskMs = result.totalTaskMs;
+function moveInstance(li, direction) {
+  if (isInstanceCurrentlyPlaying(li.dataset.instanceId)) return;
+  if (direction === -1 && li.previousElementSibling) {
+    sequenceList.insertBefore(li, li.previousElementSibling);
+  } else if (direction === 1 && li.nextElementSibling) {
+    sequenceList.insertBefore(li.nextElementSibling, li);
+  }
+  syncSequenceState();
+}
 
-  renderStats(result);
+function removeInstance(instanceId) {
+  if (isInstanceCurrentlyPlaying(instanceId)) return;
+  sequence = sequence.filter((inst) => inst.instanceId !== instanceId);
+  const li = sequenceList.querySelector(`.sequence-item[data-instance-id="${instanceId}"]`);
+  if (li) li.remove();
+  syncSequenceState();
+}
+
+function syncSequenceState() {
+  const orderedIds = [...sequenceList.querySelectorAll(".sequence-item")].map((li) => li.dataset.instanceId);
+  sequence.sort((a, b) => orderedIds.indexOf(a.instanceId) - orderedIds.indexOf(b.instanceId));
+
+  sequenceEmptyHint.hidden = sequence.length > 0;
+  updateSequenceTotalLabel();
+  updateSequenceUI();
+
+  if (sequence.length === 0) {
+    currentInstanceId = null;
+    nowPlaying.hidden = true;
+    restScreen.hidden = true;
+    stageImage.hidden = true;
+    stageImage.src = "";
+    progressBarFilled.style.width = "0%";
+    stopPlayback();
+    [btnPlayPause, btnReset, btnSkipStep, btnExtendStep, btnFullscreen].forEach((b) => (b.disabled = true));
+    return;
+  }
+
+  if (isPlaying) {
+    // No interrumpir la reproducción en curso — solo refrescar el número
+    // de posición mostrado, por si el orden cambió alrededor de la que suena.
+    updateProgressLabelPosition();
+    return;
+  }
+
+  // En pausa (o sin nada reproduciéndose): el escenario siempre refleja
+  // la primera tarea de la secuencia actual, sin importar cuál estaba antes.
+  loadInstance(sequence[0].instanceId);
+}
+
+function updateProgressLabelPosition() {
+  const index = sequence.findIndex((i) => i.instanceId === currentInstanceId);
+  progressLabel.textContent = `(${index + 1}/${sequence.length})`;
+}
+
+function updateSequenceTotalLabel() {
+  if (sequence.length === 0) {
+    sequenceTotalLabel.textContent = "";
+    return;
+  }
+  const totalSeconds = sequence.reduce((sum, inst) => sum + inst.schedule.totalTaskMs / 1000, 0);
+  sequenceTotalLabel.innerHTML = `Duración total estimada: <strong>${formatSeconds(totalSeconds)}</strong>`;
+}
+
+function isInstanceCurrentlyPlaying(instanceId) {
+  return isPlaying && instanceId === currentInstanceId;
+}
+
+function updateSequenceUI() {
+  const items = [...sequenceList.querySelectorAll(".sequence-item")];
+  items.forEach((li, index) => {
+    const locked = isInstanceCurrentlyPlaying(li.dataset.instanceId);
+    li.classList.toggle("locked", locked);
+    li.querySelector(".btn-move-up").disabled = locked || index === 0;
+    li.querySelector(".btn-move-down").disabled = locked || index === items.length - 1;
+    li.querySelector(".task-action-btn").disabled = locked;
+  });
+}
+
+// ================== CARGA Y REPRODUCCIÓN DE UNA INSTANCIA ==================
+function loadInstance(instanceId) {
+  currentInstanceId = instanceId;
+  restScreen.hidden = true;
+  stopPlayback();
+
+  const instance = sequence.find((i) => i.instanceId === instanceId);
+  const index = sequence.indexOf(instance);
+
+  currentInstanceName.textContent = instance.label;
+  progressLabel.textContent = `(${index + 1}/${sequence.length})`;
+  nowPlaying.hidden = false;
 
   imagesPreloaded = false;
-  currentStepIndex = -1;
-  elapsedAtPauseMs = 0;
+  [btnPlayPause, btnReset, btnSkipStep, btnExtendStep, btnFullscreen].forEach((b) => (b.disabled = true));
+
+  preloadImages(instance.schedule.steps, () => {
+    imagesPreloaded = true;
+    [btnPlayPause, btnReset, btnFullscreen].forEach((b) => (b.disabled = false));
+    loadVisualForStep(instance, 0);
+  });
+
+  updateSequenceUI();
 }
 
-function renderStats(result) {
-  const firstBlockStats = result.perBlockStats[0];
-  if (firstBlockStats) {
-    statActPerImage.textContent = formatSeconds(firstBlockStats.actDuration);
-    statRestPerImage.textContent = formatSeconds(firstBlockStats.restDuration);
-  }
-  statTotalTime.textContent = formatSeconds(result.totalTaskMs / 1000);
-}
-
-// ================== PRECARGA DE IMÁGENES ==================
-function preloadImages(onDone) {
+function preloadImages(steps, onDone) {
   const urls = steps.map((s) => s.src);
   let processedCount = 0;
   let missingFiles = [];
   progressLabel.textContent = `Cargando imágenes... (0/${urls.length})`;
 
-  if (urls.length === 0) {
-    onDone();
-    return;
-  }
+  if (urls.length === 0) { onDone(); return; }
 
   urls.forEach((url) => {
     const img = new Image();
-    img.onload = () => {
-      processedCount++;
-      checkIfDone();
-    };
+    img.onload = () => { processedCount++; checkIfDone(); };
     img.onerror = () => {
       processedCount++;
       missingFiles.push(url);
-      console.warn(`⚠ Imagen no encontrada: ${url} — revisa el nombre exacto del archivo.`);
+      console.warn(`⚠ Imagen no encontrada: ${url}`);
       checkIfDone();
     };
     img.src = url;
   });
 
   function checkIfDone() {
-    progressLabel.textContent = `Cargando imágenes... (${processedCount}/${urls.length})`;
     if (processedCount === urls.length) {
       if (missingFiles.length > 0) {
         progressLabel.textContent = `⚠ Faltan ${missingFiles.length} imagen(es) — revisa la consola`;
         console.warn("Resumen de imágenes faltantes:", missingFiles);
       } else {
-        progressLabel.textContent = "Listo para reproducir";
+        progressLabel.textContent = "";
       }
       onDone();
     }
   }
 }
 
-// ================== PRESENTACIÓN DEL PASO ACTUAL ==================
-function loadVisualForStep(index) {
+function loadVisualForStep(instance, index) {
   currentStepIndex = index;
-  const step = steps[currentStepIndex];
+  const step = instance.schedule.steps[index];
   if (!step) return;
 
   stageImage.src = step.src;
   stageImage.hidden = false;
-  currentBlockLabel.textContent =
-    `Bloque ${step.bloque}/${paramState.numBlocks} — ${step.type} — imagen ${step.imgIndex}/${step.imgCount}`;
 }
 
-// ================== REPRODUCCIÓN ==================
+function getCurrentInstance() {
+  return sequence.find((i) => i.instanceId === currentInstanceId);
+}
+
+// ================== CONTROLES DE REPRODUCCIÓN ==================
 btnPlayPause.addEventListener("click", () => {
   if (!imagesPreloaded) return;
-  if (isPlaying) {
-    pausePlayback();
-  } else {
-    startPlayback();
-  }
+  isPlaying ? pausePlayback() : startPlayback();
 });
 
 function startPlayback() {
-  if (!currentTask || steps.length === 0) return;
+  const instance = getCurrentInstance();
+  if (!instance || instance.schedule.steps.length === 0) return;
   isPlaying = true;
   btnPlayPause.textContent = "⏸";
-  setParamControlsDisabled(true);
-  btnRegenerate.disabled = true;
   btnSkipStep.disabled = false;
   btnExtendStep.disabled = false;
 
   playStartTimestamp = Date.now() - elapsedAtPauseMs;
   tickInterval = setInterval(tick, 50);
+  updateSequenceUI();
 }
 
 function pausePlayback() {
@@ -415,10 +387,9 @@ function pausePlayback() {
   btnPlayPause.textContent = "▶";
   clearInterval(tickInterval);
   elapsedAtPauseMs = Date.now() - playStartTimestamp;
-  setParamControlsDisabled(false);
-  btnRegenerate.disabled = false;
   btnSkipStep.disabled = true;
   btnExtendStep.disabled = true;
+  updateSequenceUI();
 }
 
 function stopPlayback() {
@@ -426,120 +397,95 @@ function stopPlayback() {
   btnPlayPause.textContent = "▶";
   clearInterval(tickInterval);
   elapsedAtPauseMs = 0;
-  setParamControlsDisabled(false);
-  btnRegenerate.disabled = false;
   btnSkipStep.disabled = true;
   btnExtendStep.disabled = true;
 }
 
-function setParamControlsDisabled(disabled) {
-  taskSelect.disabled = disabled;
-  modeRadios.forEach((r) => (r.disabled = disabled));
-  if (disabled) {
-    [totalDurationInput, numBlocksInput, blockDurationInput].forEach((el) => (el.disabled = true));
-  } else {
-    applyMode();
-  }
-}
-
 btnReset.addEventListener("click", () => {
-  if (currentTask && currentTask.ordenAleatorio) {
-    rebuildAndReload(); // tareas aleatorias: reiniciar también genera un orden nuevo
-  } else {
-    stopPlayback();
-    loadVisualForStep(0);
-  }
+  stopPlayback();
+  const instance = getCurrentInstance();
+  if (instance) loadVisualForStep(instance, 0);
 });
 
 btnFullscreen.addEventListener("click", () => {
-  if (!document.fullscreenElement) {
-    stageContainer.requestFullscreen();
-  } else {
-    document.exitFullscreen();
-  }
+  document.fullscreenElement ? document.exitFullscreen() : stageContainer.requestFullscreen();
 });
 
 // ================== CONTROLES MANUALES EN VIVO ==================
 btnSkipStep.addEventListener("click", () => {
   if (!isPlaying) return;
+  const instance = getCurrentInstance();
   const nextIndex = currentStepIndex + 1;
 
-  if (nextIndex >= steps.length) {
-    stopPlayback();
-    currentBlockLabel.textContent = "Tarea completa";
+  if (nextIndex >= instance.schedule.steps.length) {
+    finishCurrentInstance();
     return;
   }
-
-  const targetElapsed = cumulativeStarts[nextIndex];
+  const targetElapsed = instance.schedule.cumulativeStarts[nextIndex];
   playStartTimestamp = Date.now() - targetElapsed;
 });
 
 btnExtendStep.addEventListener("click", () => {
   if (!isPlaying || currentStepIndex < 0) return;
+  const instance = getCurrentInstance();
   const extraSeconds = 5;
   const extraMs = extraSeconds * 1000;
 
-  steps[currentStepIndex].duration += extraSeconds;
-  for (let i = currentStepIndex + 1; i < cumulativeStarts.length; i++) {
-    cumulativeStarts[i] += extraMs;
+  instance.schedule.steps[currentStepIndex].duration += extraSeconds;
+  for (let i = currentStepIndex + 1; i < instance.schedule.cumulativeStarts.length; i++) {
+    instance.schedule.cumulativeStarts[i] += extraMs;
   }
-  totalTaskMs += extraMs;
+  instance.schedule.totalTaskMs += extraMs;
 });
 
 function tick() {
+  const instance = getCurrentInstance();
+  if (!instance) return;
   const elapsed = Date.now() - playStartTimestamp;
 
-  if (elapsed >= totalTaskMs) {
-    stopPlayback();
-    currentBlockLabel.textContent = "Tarea completa";
+  if (elapsed >= instance.schedule.totalTaskMs) {
+    finishCurrentInstance();
     return;
   }
 
   let newIndex = currentStepIndex;
   while (
-    newIndex + 1 < steps.length &&
-    elapsed >= cumulativeStarts[newIndex + 1]
+    newIndex + 1 < instance.schedule.steps.length &&
+    elapsed >= instance.schedule.cumulativeStarts[newIndex + 1]
   ) {
     newIndex++;
   }
+  if (newIndex !== currentStepIndex) loadVisualForStep(instance, newIndex);
 
-  if (newIndex !== currentStepIndex) {
-    loadVisualForStep(newIndex);
-    const drift = elapsed - cumulativeStarts[newIndex];
-    console.log(
-      `[Verificación] Bloque ${steps[newIndex].bloque} — ${steps[newIndex].type} ${steps[newIndex].imgIndex}/${steps[newIndex].imgCount} — desfase: ${drift.toFixed(1)}ms`
-    );
-  }
-
-  updateProgressUI(elapsed);
+  updateProgressBar(instance, elapsed);
 }
 
-function updateProgressUI(elapsed) {
-  const step = steps[currentStepIndex];
+function updateProgressBar(instance, elapsed) {
+  const step = instance.schedule.steps[currentStepIndex];
   if (!step) return;
-  const stepStart = cumulativeStarts[currentStepIndex];
-  const stepEnd = stepStart + step.duration * 1000;
-  const timeLeftMs = stepEnd - elapsed;
+  const stepStart = instance.schedule.cumulativeStarts[currentStepIndex];
   const percentage = ((elapsed - stepStart) / (step.duration * 1000)) * 100;
-
   progressBarFilled.style.width = Math.max(0, Math.min(100, percentage)) + "%";
-  progressLabel.textContent = formatSeconds(timeLeftMs / 1000) + " restantes en esta imagen";
 }
+
+function finishCurrentInstance() {
+  stopPlayback();
+  const index = sequence.findIndex((i) => i.instanceId === currentInstanceId);
+  const isLast = index === -1 || index >= sequence.length - 1;
+  btnContinueNext.hidden = isLast;
+  restScreen.hidden = false;
+}
+
+btnContinueNext.addEventListener("click", () => {
+  const index = sequence.findIndex((i) => i.instanceId === currentInstanceId);
+  if (index !== -1 && index < sequence.length - 1) {
+    loadInstance(sequence[index + 1].instanceId);
+  }
+});
 
 // ================== VISIBILIDAD DE LA PESTAÑA ==================
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && isPlaying) {
     pausePlayback();
-    currentBlockLabel.textContent = "⚠ Pausado: la pestaña perdió el foco";
   }
 });
-
-// ================== UTILIDADES ==================
-function formatSeconds(totalSeconds) {
-  const rounded = Math.round(totalSeconds * 100) / 100;
-  return rounded.toFixed(2) + "s";
-}
-
-function round2(value) {
-  return Math.round(value * 100) / 100;
-}
