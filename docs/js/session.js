@@ -9,9 +9,6 @@ let language = "es";
 
 let player;
 let isPlayerReady = false;
-let progressInterval;
-let hideControlsTimeout;
-let isDraggingProgress = false;
 
 // ================== DOM ==================
 const btnToggleTasks = document.getElementById("btn-toggle-tasks");
@@ -28,22 +25,11 @@ const nowPlaying = document.getElementById("now-playing");
 const currentTaskName = document.getElementById("current-task-name");
 const progressLabel = document.getElementById("progress-label");
 
-const playerContainer = document.getElementById("player-container");
-const videoOverlay = document.getElementById("video-overlay");
-const customControls = document.getElementById("custom-controls");
 const restScreen = document.getElementById("rest-screen");
 const btnContinueNext = document.getElementById("btn-continue-next");
 
-const btnPlayPause = document.getElementById("btn-play-pause");
-const btnRewind = document.getElementById("btn-rewind");
-const btnForward = document.getElementById("btn-forward");
-const btnRestart = document.getElementById("btn-restart");
-const btnFullscreen = document.getElementById("btn-fullscreen");
 const btnPrevTask = document.getElementById("btn-prev-task");
 const btnNextTask = document.getElementById("btn-next-task");
-
-const progressBarContainer = document.getElementById("progress-bar-container");
-const progressBarFilled = document.getElementById("progress-bar-filled");
 
 // ================== UTILIDADES ==================
 function whenReady(fn) {
@@ -68,8 +54,6 @@ function secondsToDuration(totalSeconds) {
 
 // Duración que se muestra en las listas, usando exclusivamente los valores
 // escritos a mano en tasks.json (duration / explainerDuration).
-// Si los explicativos están activados y esta tarea tiene uno con duración
-// válida, suma explicativo + tarea. Si no, muestra solo la tarea.
 function getDisplayDuration(def) {
   const taskSeconds = durationToSeconds(def.duration);
   const explainerSeconds = durationToSeconds(def.explainerDuration);
@@ -104,8 +88,7 @@ function resolveTaskDef(taskId) {
 }
 
 // Suma la duración de todas las tareas en la secuencia actual, incluyendo
-// los explicativos si el interruptor está activado. Usa los mismos datos
-// de tasks.json que ya alimentan getDisplayDuration().
+// los explicativos si el interruptor está activado.
 function computeSequenceTotalSeconds() {
   return sequence.reduce((total, taskId) => {
     const def = resolveTaskDef(taskId);
@@ -184,8 +167,7 @@ function reloadIfPausedAndAffected() {
   }
 }
 
-// Actualiza la duración mostrada de TODAS las tareas en ambas listas,
-// sin reconstruir el resto del DOM.
+// Actualiza la duración mostrada de TODAS las tareas en ambas listas.
 function refreshAllDurations() {
   allTasks.forEach((task) => {
     const def = resolveTaskDef(task.id);
@@ -352,9 +334,8 @@ function syncSequenceFromDOM() {
     currentTaskId = null;
     nowPlaying.hidden = true;
     restScreen.hidden = true;
-    [btnPlayPause, btnRewind, btnForward, btnRestart, btnFullscreen, btnPrevTask, btnNextTask].forEach(
-      (b) => (b.disabled = true)
-    );
+    btnPrevTask.disabled = true;
+    btnNextTask.disabled = true;
     if (isPlayerReady) player.stopVideo();
     updateSequenceTotalLabel();
     return;
@@ -403,7 +384,6 @@ function loadTask(taskId) {
   if (isPlayerReady) player.cueVideoById(videoId);
   updateNowPlayingLabel();
   updateNavButtonsState();
-  [btnPlayPause, btnRewind, btnForward, btnRestart, btnFullscreen].forEach((b) => (b.disabled = false));
   updateSequenceUI();
 }
 
@@ -441,19 +421,17 @@ btnContinueNext.addEventListener("click", whenReady(() => {
   btnContinueNext.blur();
 }));
 
-// ================== PLAYER DE YOUTUBE ==================
+// ================== PLAYER DE YOUTUBE (con sus controles nativos) ==================
 function onYouTubeIframeAPIReady() {
   player = new YT.Player("youtube-player", {
     height: "100%",
     width: "100%",
     playerVars: {
-      controls: 0,
+      controls: 1,        // controles nativos de YouTube, visibles
       rel: 0,
       modestbranding: 1,
-      disablekb: 1,
-      fs: 0,
       iv_load_policy: 3,
-      cc_load_policy: 0,
+      cc_load_policy: 0,  // subtítulos apagados por defecto; el usuario los activa manualmente si quiere
     },
     events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange, onError: onPlayerError },
   });
@@ -473,16 +451,8 @@ function onPlayerStateChange(event) {
   updateSequenceUI();
 
   if (event.data === YT.PlayerState.PLAYING) {
-    btnPlayPause.textContent = "⏸";
     restScreen.hidden = true;
-    startProgressTracking();
-  } else if (event.data === YT.PlayerState.PAUSED) {
-    btnPlayPause.textContent = "▶";
-    stopProgressTracking();
   } else if (event.data === YT.PlayerState.ENDED) {
-    btnPlayPause.textContent = "▶";
-    stopProgressTracking();
-
     if (currentSegment === "explainer") {
       const def = resolveTaskDef(currentTaskId);
       currentSegment = "main";
@@ -501,88 +471,18 @@ function showRestScreen() {
   restScreen.hidden = false;
 }
 
-// ================== REPRODUCIR / PAUSAR ==================
+// ================== ATAJO DE BARRA ESPACIADORA (opcional) ==================
+// No es un control visual — es solo un atajo de teclado. Si prefieres depender
+// 100% del comportamiento nativo de YouTube, borra este bloque completo.
 function togglePlayPause() {
   const state = player.getPlayerState();
   state === YT.PlayerState.PLAYING ? player.pauseVideo() : player.playVideo();
 }
 
-btnPlayPause.addEventListener("click", whenReady(() => { togglePlayPause(); btnPlayPause.blur(); }));
-videoOverlay.addEventListener("click", whenReady(togglePlayPause));
-
 document.addEventListener("keydown", (event) => {
-  if (event.code !== "Space") return;
+  if (event.code !== "Space" || !isPlayerReady) return;
   const tag = document.activeElement.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA") return;
   event.preventDefault();
-  if (isPlayerReady) togglePlayPause();
+  togglePlayPause();
 });
-
-// ================== RETROCEDER / ADELANTAR / REINICIAR ==================
-btnRewind.addEventListener("click", whenReady(() => {
-  player.seekTo(Math.max(0, player.getCurrentTime() - 10), true);
-  btnRewind.blur();
-}));
-
-btnForward.addEventListener("click", whenReady(() => {
-  const duration = player.getDuration();
-  const target = player.getCurrentTime() + 10;
-  player.seekTo(duration > 0 ? Math.min(duration, target) : target, true);
-  btnForward.blur();
-}));
-
-btnRestart.addEventListener("click", whenReady(() => {
-  player.seekTo(0, true);
-  player.playVideo();
-  btnRestart.blur();
-}));
-
-// ================== BARRA DE PROGRESO (clic + arrastre) ==================
-function seekFromClientX(clientX) {
-  const rect = progressBarContainer.getBoundingClientRect();
-  const percentage = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-  const duration = player.getDuration();
-  if (duration > 0) {
-    player.seekTo(duration * percentage, true);
-    progressBarFilled.style.width = percentage * 100 + "%";
-  }
-}
-
-progressBarContainer.addEventListener("mousedown", whenReady((e) => {
-  isDraggingProgress = true;
-  seekFromClientX(e.clientX);
-}));
-
-document.addEventListener("mousemove", (e) => {
-  if (isDraggingProgress) seekFromClientX(e.clientX);
-});
-
-document.addEventListener("mouseup", () => {
-  isDraggingProgress = false;
-});
-
-function startProgressTracking() {
-  stopProgressTracking();
-  progressInterval = setInterval(() => {
-    if (!isPlayerReady || isDraggingProgress) return;
-    const current = player.getCurrentTime();
-    const duration = player.getDuration();
-    if (duration > 0) progressBarFilled.style.width = (current / duration) * 100 + "%";
-  }, 500);
-}
-function stopProgressTracking() { clearInterval(progressInterval); }
-
-// ================== PANTALLA COMPLETA ==================
-btnFullscreen.addEventListener("click", () => {
-  document.fullscreenElement ? document.exitFullscreen() : playerContainer.requestFullscreen();
-  btnFullscreen.blur();
-});
-
-// ================== AUTO-OCULTAR CONTROLES ==================
-function showControls() {
-  customControls.classList.remove("hidden");
-  clearTimeout(hideControlsTimeout);
-  hideControlsTimeout = setTimeout(() => customControls.classList.add("hidden"), 3000);
-}
-playerContainer.addEventListener("mousemove", showControls);
-playerContainer.addEventListener("mouseenter", showControls);
