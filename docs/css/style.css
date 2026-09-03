@@ -18,6 +18,10 @@
   --color-success: #10b981;
 }
 
+html {
+  font-size: clamp(15px, 0.6vw + 9px, 21px);
+}
+
 body {
   font-family: 'Segoe UI', Arial, sans-serif;
   color: var(--color-text);
@@ -129,11 +133,11 @@ body {
 
 /* ---- Layout: video grande a la izquierda, organizador a la derecha ---- */
 .session-layout {
-  max-width: 1300px;
+  max-width: min(1800px, 94vw);
   margin: 1.5rem auto;
   padding: 0 1.5rem;
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr minmax(340px, 26%);
   gap: 1.5rem;
   align-items: start;
 }
@@ -154,6 +158,17 @@ body {
 .builder-panel h3 {
   color: var(--color-primary);
   font-size: 1rem;
+}
+
+
+.sequence-total {
+  font-size: 0.85rem;
+  color: #556;
+  margin-top: -0.4rem;
+}
+
+.sequence-total strong {
+  color: var(--color-primary);
 }
 
 .tasks-dropdown {

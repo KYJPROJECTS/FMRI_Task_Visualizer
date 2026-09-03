@@ -103,6 +103,29 @@ function resolveTaskDef(taskId) {
   };
 }
 
+// Suma la duración de todas las tareas en la secuencia actual, incluyendo
+// los explicativos si el interruptor está activado. Usa los mismos datos
+// de tasks.json que ya alimentan getDisplayDuration().
+function computeSequenceTotalSeconds() {
+  return sequence.reduce((total, taskId) => {
+    const def = resolveTaskDef(taskId);
+    const taskSeconds = durationToSeconds(def.duration);
+    const explainerSeconds = explainersEnabled ? durationToSeconds(def.explainerDuration) : 0;
+    return total + taskSeconds + explainerSeconds;
+  }, 0);
+}
+
+function updateSequenceTotalLabel() {
+  const el = document.getElementById("sequence-total-duration");
+  if (!el) return;
+  if (sequence.length === 0) {
+    el.textContent = "";
+    return;
+  }
+  const total = computeSequenceTotalSeconds();
+  el.innerHTML = `Duración total estimada: <strong>${secondsToDuration(total)}</strong>`;
+}
+
 // ================== CATÁLOGO DE TAREAS ==================
 fetch("data/tasks.json")
   .then((r) => r.json())
@@ -126,6 +149,7 @@ btnToggleTasks.addEventListener("click", () => {
 toggleExplainers.addEventListener("change", () => {
   explainersEnabled = toggleExplainers.checked;
   refreshAllDurations();
+  updateSequenceTotalLabel();
   if (currentTaskId && !isTaskCurrentlyPlaying(currentTaskId)) {
     loadTask(currentTaskId);
   }
@@ -137,6 +161,7 @@ handednessButtons.forEach((btn) => {
     handedness = btn.dataset.hand;
     handednessButtons.forEach((b) => b.classList.toggle("active", b === btn));
     refreshAllDurations();
+    updateSequenceTotalLabel();
     reloadIfPausedAndAffected();
   });
 });
@@ -147,6 +172,7 @@ languageButtons.forEach((btn) => {
     language = btn.dataset.lang;
     languageButtons.forEach((b) => b.classList.toggle("active", b === btn));
     refreshAllDurations();
+    updateSequenceTotalLabel();
     reloadIfPausedAndAffected();
   });
 });
@@ -330,6 +356,7 @@ function syncSequenceFromDOM() {
       (b) => (b.disabled = true)
     );
     if (isPlayerReady) player.stopVideo();
+    updateSequenceTotalLabel();
     return;
   }
 
@@ -340,6 +367,7 @@ function syncSequenceFromDOM() {
     updateNavButtonsState();
   }
   updateSequenceUI();
+  updateSequenceTotalLabel();
 }
 
 function isTaskCurrentlyPlaying(taskId) {
