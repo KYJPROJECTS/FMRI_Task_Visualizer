@@ -114,6 +114,7 @@
       "prefijo": "muni",
       "duracionEstandarBloque": 20,
       "extension": "png",
+      "reuseImages": true,
       "bloques": [
         {
           "activacion": 1,

@@ -93,13 +93,13 @@ taskSelect.addEventListener("change", () => {
   stimuliPerBlockInput.min = 1;
   stimuliPerBlockInput.max = maxStimuliPerBlock;
   stimuliPerBlockInput.value = maxStimuliPerBlock; // estándar: usar todas las imágenes preparadas
-  stimuliPerBlockHint.textContent = isFixedStimiuli(isFixedStimuli);
+  stimuliPerBlockHint.textContent = getStimuliPerBlockHintText(isFixedStimuli);
 
   btnAddInstance.disabled = false;
   recomputePreview();
 });
 
-function isFixedStimiuli(isFixed) {
+function getStimuliPerBlockHintText(isFixed) {
   return isFixed
     ? "Esta tarea usa un solo estímulo por bloque (no configurable)."
     : "";
@@ -149,8 +149,10 @@ btnAddInstance.addEventListener("click", () => {
 });
 
 // ================== CONSTRUCCIÓN DEL SCHEDULE (sin jitter: duración fija siempre) ==================
-function buildImagePath(taskId, prefijo, cycleNumber, typeCode, imageIndex, extension) {
-  return `images/${taskId}/${prefijo}_b${cycleNumber}_${typeCode}${imageIndex}.${extension}`;
+function buildImagePath(taskId, prefijo, cycle, typeChar, imageIndex, extension, reuseImages) {
+  const effectiveCycle = reuseImages ? 1 : cycle;
+  const fileBlock = typeChar === "r" ? effectiveCycle * 2 - 1 : effectiveCycle * 2;
+  return `images/${prefijo}/${prefijo}_b${fileBlock}_${typeChar}${imageIndex}.${extension}`;
 }
 
 function buildSchedule(task, instance) {
@@ -162,7 +164,7 @@ function buildSchedule(task, instance) {
     for (let i = 1; i <= instance.stimuliPerBlock; i++) {
       steps.push({
         type: "reposo",
-        src: buildImagePath(task.id, task.prefijo, cycle, "r", i, task.extension || "png"),
+        src: buildImagePath(task.id, task.prefijo, cycle, "r", i, task.extension || "png", task.reuseImages),
         duration: restPerImage,
         cycle,
         imgIndex: i,
@@ -173,7 +175,7 @@ function buildSchedule(task, instance) {
     for (let i = 1; i <= instance.stimuliPerBlock; i++) {
       steps.push({
         type: "activación",
-        src: buildImagePath(task.id, task.prefijo, cycle, "a", i, task.extension || "png"),
+        src: buildImagePath(task.id, task.prefijo, cycle, "a", i, task.extension || "png", task.reuseImages),
         duration: actPerImage,
         cycle,
         imgIndex: i,
