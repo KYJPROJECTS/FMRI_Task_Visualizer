@@ -318,7 +318,8 @@ body {
 }
 
 #youtube-player,
-#youtube-player-inv {
+#youtube-player-inv,
+#youtube-player-inv-wrapper {
   position: absolute;
   top: 0;
   left: 0;

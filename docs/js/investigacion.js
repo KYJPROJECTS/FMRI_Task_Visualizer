@@ -9,6 +9,59 @@ let currentInstanceId = null;
 // (precarga de imágenes de una instancia ya borrada) se compara contra este
 // número antes de tocar el DOM — si no coincide, no hace nada.
 let stageGeneration = 0;
+
+// ================== MODO PRESENTADOR (pantalla del paciente) ==================
+// Ventana separada, sin controles, que solo refleja lo que el paciente debe
+// ver. Se comunica con esta ventana por BroadcastChannel — sin servidor,
+// sin dependencias nuevas. Si el navegador no soporta BroadcastChannel
+// (muy poco probable hoy en día), el botón simplemente no hace nada útil,
+// pero el resto de la app sigue funcionando igual.
+const presenterChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("fmri-investigacion-presenter") : null;
+let presenterWindowRef = null;
+
+const btnOpenPresenter = document.getElementById("btn-open-presenter");
+btnOpenPresenter.addEventListener("click", () => {
+  presenterWindowRef = window.open("pantalla.html", "fmri-pantalla-paciente", "width=1280,height=720");
+});
+
+if (presenterChannel) {
+  presenterChannel.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "request-state") broadcastCurrentState();
+  });
+}
+
+// Le manda a la pantalla del paciente exactamente lo que corresponde según
+// el estado actual — se usa tanto en cada cambio real como cuando la
+// pantalla del paciente se abre/reabre y pide "el estado actual" de una.
+function broadcastCurrentState() {
+  if (!presenterChannel) return;
+
+  if (!currentInstanceId || !restScreen.hidden) {
+    presenterChannel.postMessage({ type: "show-blank" });
+    return;
+  }
+
+  if (currentSegment === "explainer") {
+    const instance = getCurrentInstance();
+    const def = instance && resolveExplainerDef(instance.taskId);
+    if (!def) {
+      presenterChannel.postMessage({ type: "show-blank" });
+      return;
+    }
+    presenterChannel.postMessage({ type: "show-explainer", videoId: def.explainerYoutubeId });
+    if (isYtPlayerReady) {
+      presenterChannel.postMessage({ type: "seek-explainer", seconds: ytPlayer.getCurrentTime() });
+      presenterChannel.postMessage({ type: isPlaying ? "play-explainer" : "pause-explainer" });
+    }
+    return;
+  }
+
+  if (!stageImage.hidden && stageImage.src) {
+    presenterChannel.postMessage({ type: "show-image", src: stageImage.src });
+  } else {
+    presenterChannel.postMessage({ type: "show-blank" });
+  }
+}
 let nextInstanceNumber = 1;
 
 let currentStepIndex = -1;
@@ -27,6 +80,7 @@ let currentSegment = "images"; // "explainer" | "images" — qué se está mostr
 let ytPlayer;
 let isYtPlayerReady = false;
 let pendingAutoStartAfterPreload = false; // el explicativo terminó antes de que las imágenes cargaran
+let presenterSyncInterval = null; // reenvía la posición del explicativo a la pantalla del paciente cada 3s
 
 // ================== DOM ==================
 const taskSelect = document.getElementById("task-select-inv");
@@ -52,7 +106,7 @@ const progressLabel = document.getElementById("progress-label-inv");
 
 const stageContainer = document.getElementById("stage-container");
 const stageImage = document.getElementById("stage-image");
-const youtubeStage = document.getElementById("youtube-player-inv");
+const youtubeStage = document.getElementById("youtube-player-inv-wrapper"); // el envoltorio, NO el div que la API de YouTube reemplaza
 const customControls = document.getElementById("custom-controls");
 const restScreen = document.getElementById("rest-screen-inv");
 const btnContinueNext = document.getElementById("btn-continue-next-inv");
@@ -65,6 +119,7 @@ const languageButtons = document.querySelectorAll("#language-selector-inv .langu
 const handednessButtons = document.querySelectorAll("#handedness-selector-inv .handedness-btn");
 
 const btnPlayPause = document.getElementById("btn-play-pause-inv");
+const btnPauseImagesNav = document.getElementById("btn-pause-images-nav"); // mismo control, atajo visible junto a Anterior/Siguiente
 const btnReset = document.getElementById("btn-reset-inv");
 const btnSkipStep = document.getElementById("btn-skip-step-inv");
 const btnExtendStep = document.getElementById("btn-extend-step-inv");
@@ -255,7 +310,7 @@ btnAddInstance.addEventListener("click", () => {
 
   sequence.push(instance);
   renderSequenceItem(instance);
-  syncSequenceState();
+  syncSequenceState(instance.instanceId);
 });
 
 // ================== CONSTRUCCIÓN DEL SCHEDULE ==================
@@ -402,7 +457,7 @@ function removeInstance(instanceId) {
   syncSequenceState();
 }
 
-function syncSequenceState() {
+function syncSequenceState(preferredInstanceId) {
   const orderedIds = [...sequenceList.querySelectorAll(".sequence-item")].map((li) => li.dataset.instanceId);
   sequence.sort((a, b) => orderedIds.indexOf(a.instanceId) - orderedIds.indexOf(b.instanceId));
 
@@ -417,15 +472,23 @@ function syncSequenceState() {
   }
 
   if (isPlaying) {
-    // No interrumpir la reproducción en curso — solo refrescar el número
-    // de posición mostrado, por si el orden cambió alrededor de la que suena.
+    // No interrumpir la reproducción en curso — pero sí refrescar todo lo
+    // que no requiere tocar el escenario: la etiqueta de posición y si
+    // ahora hay una tarea siguiente disponible (ej. si se acaba de agregar
+    // una mientras algo sonaba, "Siguiente" debe habilitarse al instante).
     updateProgressLabelPosition();
+    updateNavButtonsState();
     return;
   }
 
-  // En pausa (o sin nada reproduciéndose): el escenario siempre refleja
-  // la primera tarea de la secuencia actual, sin importar cuál estaba antes.
-  loadInstance(sequence[0].instanceId);
+  // En pausa (o sin nada reproduciéndose): normalmente el escenario refleja
+  // la primera tarea de la secuencia. La excepción es justo después de
+  // agregar una tarea nueva — ahí se prefiere mostrar la que se acaba de
+  // agregar (para que su explicativo aparezca), no la primera de la lista.
+  const targetId = preferredInstanceId && sequence.some((i) => i.instanceId === preferredInstanceId)
+    ? preferredInstanceId
+    : sequence[0].instanceId;
+  loadInstance(targetId);
 }
 
 // Único punto que deja el escenario completamente limpio (sin instancia
@@ -435,6 +498,7 @@ function syncSequenceState() {
 function resetStageToEmpty() {
   stageGeneration++; // invalida cualquier callback pendiente de una instancia anterior (ej. precarga en curso)
   stopAnyPlayback();
+  clearInterval(presenterSyncInterval);
   currentInstanceId = null;
   currentSegment = "images";
   nowPlaying.hidden = true;
@@ -444,9 +508,10 @@ function resetStageToEmpty() {
   youtubeStage.hidden = true;
   customControls.hidden = false;
   progressBarFilled.style.width = "0%";
-  [btnPlayPause, btnReset, btnSkipStep, btnExtendStep, btnFullscreen].forEach((b) => (b.disabled = true));
+  [btnPlayPause, btnPauseImagesNav, btnReset, btnSkipStep, btnExtendStep, btnFullscreen].forEach((b) => (b.disabled = true));
   btnPrevInstance.disabled = true;
   btnNextInstance.disabled = true;
+  if (presenterChannel) presenterChannel.postMessage({ type: "show-blank" });
 }
 
 function updateProgressLabelPosition() {
@@ -586,7 +651,7 @@ function loadInstance(instanceId) {
   btnFullscreen.disabled = false; // no depende de la precarga de imágenes
   imagesPreloaded = false;
   pendingAutoStartAfterPreload = false;
-  [btnPlayPause, btnReset, btnSkipStep, btnExtendStep].forEach((b) => (b.disabled = true));
+  [btnPlayPause, btnPauseImagesNav, btnReset, btnSkipStep, btnExtendStep].forEach((b) => (b.disabled = true));
 
   // Las imágenes se precargan en paralelo al explicativo (si lo hay), para
   // que al terminar el video la secuencia arranque sin espera. Si para
@@ -598,7 +663,7 @@ function loadInstance(instanceId) {
     if (!hasMissing) updateNowPlayingLabel(); // restaura "(1/3)" si el aviso de precarga lo tapó
 
     if (currentSegment === "images") {
-      [btnPlayPause, btnReset].forEach((b) => (b.disabled = false));
+      [btnPlayPause, btnPauseImagesNav, btnReset].forEach((b) => (b.disabled = false));
       loadVisualForStep(instance, 0);
     }
     if (pendingAutoStartAfterPreload) {
@@ -611,6 +676,7 @@ function loadInstance(instanceId) {
   if (startWithExplainer) {
     showExplainerStage();
     if (isYtPlayerReady) ytPlayer.cueVideoById(explainerDef.explainerYoutubeId);
+    if (presenterChannel) presenterChannel.postMessage({ type: "show-explainer", videoId: explainerDef.explainerYoutubeId });
   } else {
     showImageStage();
   }
@@ -671,6 +737,7 @@ function loadVisualForStep(instance, index) {
 
   stageImage.src = step.src;
   stageImage.hidden = false;
+  if (presenterChannel) presenterChannel.postMessage({ type: "show-image", src: step.src });
 }
 
 function getCurrentInstance() {
@@ -722,10 +789,28 @@ function onYtPlayerStateChange(event) {
   if (event.data === YT.PlayerState.PLAYING) {
     isPlaying = true;
     updateSequenceUI();
+    if (presenterChannel) {
+      presenterChannel.postMessage({ type: "seek-explainer", seconds: ytPlayer.getCurrentTime() });
+      presenterChannel.postMessage({ type: "play-explainer" });
+      // Reenvía la posición cada 3s mientras suena, para corregir cualquier
+      // pequeño desajuste entre los dos reproductores (cada ventana tiene
+      // el suyo — nunca quedan perfectamente cuadro a cuadro, pero así no
+      // se acumula diferencia a lo largo del video).
+      clearInterval(presenterSyncInterval);
+      presenterSyncInterval = setInterval(() => {
+        presenterChannel.postMessage({ type: "seek-explainer", seconds: ytPlayer.getCurrentTime() });
+      }, 3000);
+    }
   } else if (event.data === YT.PlayerState.PAUSED) {
     isPlaying = false;
     updateSequenceUI();
+    clearInterval(presenterSyncInterval);
+    if (presenterChannel) {
+      presenterChannel.postMessage({ type: "seek-explainer", seconds: ytPlayer.getCurrentTime() });
+      presenterChannel.postMessage({ type: "pause-explainer" });
+    }
   } else if (event.data === YT.PlayerState.ENDED) {
+    clearInterval(presenterSyncInterval);
     finishExplainer();
   }
 }
@@ -743,7 +828,7 @@ function finishExplainer() {
   updateNowPlayingLabel();
 
   if (imagesPreloaded) {
-    [btnPlayPause, btnReset].forEach((b) => (b.disabled = false));
+    [btnPlayPause, btnPauseImagesNav, btnReset].forEach((b) => (b.disabled = false));
     loadVisualForStep(instance, 0);
     startPlayback();
   } else {
@@ -757,12 +842,18 @@ btnPlayPause.addEventListener("click", () => {
   if (currentSegment !== "images" || !imagesPreloaded) return;
   isPlaying ? pausePlayback() : startPlayback();
 });
+btnPauseImagesNav.addEventListener("click", () => btnPlayPause.click());
+
+function setPlayPauseIcon(icon) {
+  btnPlayPause.textContent = icon;
+  btnPauseImagesNav.textContent = icon;
+}
 
 function startPlayback() {
   const instance = getCurrentInstance();
   if (!instance || instance.schedule.steps.length === 0) return;
   isPlaying = true;
-  btnPlayPause.textContent = "⏸";
+  setPlayPauseIcon("⏸");
   btnSkipStep.disabled = false;
   btnExtendStep.disabled = false;
 
@@ -773,7 +864,7 @@ function startPlayback() {
 
 function pausePlayback() {
   isPlaying = false;
-  btnPlayPause.textContent = "▶";
+  setPlayPauseIcon("▶");
   clearInterval(tickInterval);
   elapsedAtPauseMs = Date.now() - playStartTimestamp;
   btnSkipStep.disabled = true;
@@ -783,7 +874,7 @@ function pausePlayback() {
 
 function stopPlayback() {
   isPlaying = false;
-  btnPlayPause.textContent = "▶";
+  setPlayPauseIcon("▶");
   clearInterval(tickInterval);
   elapsedAtPauseMs = 0;
   btnSkipStep.disabled = true;
@@ -871,6 +962,7 @@ function finishCurrentInstance() {
   const isLast = index === -1 || index >= sequence.length - 1;
   btnContinueNext.hidden = isLast;
   restScreen.hidden = false;
+  if (presenterChannel) presenterChannel.postMessage({ type: "show-blank" });
 }
 
 btnContinueNext.addEventListener("click", () => {

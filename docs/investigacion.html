@@ -34,7 +34,9 @@
         </div>
 
         <div class="player-section" id="stage-container">
-          <div id="youtube-player-inv" hidden></div>
+          <div id="youtube-player-inv-wrapper" hidden>
+            <div id="youtube-player-inv"></div>
+          </div>
           <img id="stage-image" class="stage-image" alt="Imagen de estímulo" hidden>
 
           <div class="rest-screen" id="rest-screen-inv" hidden>
@@ -57,8 +59,15 @@
 
         <div class="task-nav-bar">
           <button id="btn-prev-instance" class="btn-secondary" disabled title="Instancia anterior">⏮ Anterior</button>
+          <button id="btn-pause-images-nav" class="btn-secondary" disabled
+            title="Pausar/reproducir la secuencia de imágenes">▶</button>
           <button id="btn-next-instance" class="btn-secondary" disabled title="Siguiente instancia">Siguiente
             ⏭</button>
+        </div>
+
+        <div class="task-nav-bar">
+          <button id="btn-open-presenter" class="btn-secondary"
+            title="Abre una ventana sin controles para proyectar al paciente">🖥️ Pantalla del paciente</button>
         </div>
 
       </div>
