@@ -1,7 +1,14 @@
+console.log("investigacion.js — versión con limpieza de escenario al borrar (v3)");
+
 // ================== ESTADO ==================
 let allTasks = [];
 let sequence = []; // array de instancias: { instanceId, taskId, label, numBlocks, blockDuration, stimuliPerBlock, schedule }
 let currentInstanceId = null;
+// Se incrementa cada vez que cambia qué instancia manda en pantalla (carga
+// una nueva, o se vacía la secuencia). Cualquier callback asíncrono viejo
+// (precarga de imágenes de una instancia ya borrada) se compara contra este
+// número antes de tocar el DOM — si no coincide, no hace nada.
+let stageGeneration = 0;
 let nextInstanceNumber = 1;
 
 let currentStepIndex = -1;
@@ -11,6 +18,16 @@ let tickInterval = null;
 let isPlaying = false;
 let imagesPreloaded = false;
 
+// Explicativos (reutilizan el mismo catálogo que "Nueva sesión")
+let explainerTasks = [];
+let explainersEnabled = true;
+let language = "es";
+let handedness = "diestro";
+let currentSegment = "images"; // "explainer" | "images" — qué se está mostrando en el escenario
+let ytPlayer;
+let isYtPlayerReady = false;
+let pendingAutoStartAfterPreload = false; // el explicativo terminó antes de que las imágenes cargaran
+
 // ================== DOM ==================
 const taskSelect = document.getElementById("task-select-inv");
 const numBlocksInput = document.getElementById("num-blocks-input");
@@ -18,7 +35,7 @@ const numBlocksHint = document.getElementById("num-blocks-hint");
 const blockDurationInput = document.getElementById("block-duration-input");
 const stimuliPerBlockInput = document.getElementById("stimuli-per-block-input");
 const stimuliPerBlockHint = document.getElementById("stimuli-per-block-hint");
-const repeatModeRadios = document.querySelectorAll('input[name="repeat-mode"]');
+const repeatModeRandomCheckbox = document.getElementById("repeat-mode-random");
 const repeatModeHint = document.getElementById("repeat-mode-hint");
 const statStimulusTime = document.getElementById("stat-stimulus-time");
 const statTaskTotalTime = document.getElementById("stat-task-total-time");
@@ -34,8 +51,17 @@ const progressLabel = document.getElementById("progress-label-inv");
 
 const stageContainer = document.getElementById("stage-container");
 const stageImage = document.getElementById("stage-image");
+const youtubeStage = document.getElementById("youtube-player-inv");
+const customControls = document.getElementById("custom-controls");
 const restScreen = document.getElementById("rest-screen-inv");
 const btnContinueNext = document.getElementById("btn-continue-next-inv");
+
+const btnPrevInstance = document.getElementById("btn-prev-instance");
+const btnNextInstance = document.getElementById("btn-next-instance");
+
+const toggleExplainers = document.getElementById("toggle-explainers-inv");
+const languageButtons = document.querySelectorAll("#language-selector-inv .language-btn");
+const handednessButtons = document.querySelectorAll("#handedness-selector-inv .handedness-btn");
 
 const btnPlayPause = document.getElementById("btn-play-pause-inv");
 const btnReset = document.getElementById("btn-reset-inv");
@@ -59,18 +85,72 @@ fetch("data/investigacion-tasks.json")
   })
   .catch((err) => console.error("No se pudo cargar investigacion-tasks.json:", err));
 
+// Mismo catálogo de videos explicativos que usa "Nueva sesión" — se
+// reutiliza tal cual, sin duplicar guiones ni IDs de YouTube.
+fetch("data/tasks.json")
+  .then((r) => r.json())
+  .then((data) => { explainerTasks = data.tasks; })
+  .catch((err) => console.error("No se pudo cargar tasks.json (explicativos):", err));
+
+// Resuelve el explicativo de una tarea según idioma y lateralidad actuales.
+// Solo menv tiene variantes por lateralidad (diestro/zurdo); el resto la
+// ignora automáticamente porque no tiene la clave "variants".
+function resolveExplainerDef(taskId) {
+  const task = explainerTasks.find((t) => t.id === taskId);
+  if (!task) return null;
+  const base = task.variants ? (task.variants[handedness] || task.variants.diestro) : task;
+  const langData = base[language] || base.es;
+  return { explainerYoutubeId: langData.explainerYoutubeId, explainerDuration: langData.explainerDuration };
+}
+
+// ================== AJUSTES: EXPLICATIVOS / IDIOMA / LATERALIDAD ==================
+toggleExplainers.addEventListener("change", () => {
+  explainersEnabled = toggleExplainers.checked;
+  reloadIfPausedAndAffected();
+});
+
+languageButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    language = btn.dataset.lang;
+    languageButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    reloadIfPausedAndAffected();
+  });
+});
+
+handednessButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    handedness = btn.dataset.hand;
+    handednessButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    reloadIfPausedAndAffected();
+  });
+});
+
+// Recarga la instancia actual si está en pausa (nunca interrumpe una que se
+// está reproduciendo, sea explicativo o secuencia de imágenes).
+function reloadIfPausedAndAffected() {
+  if (currentInstanceId && !isPlaying) {
+    loadInstance(currentInstanceId);
+  }
+}
+
 // ================== UTILIDADES ==================
 function formatSeconds(totalSeconds) {
   const rounded = Math.round(totalSeconds * 100) / 100;
   return rounded.toFixed(2) + "s";
 }
 
-// Cuenta cuántas imágenes reales existen en total por tipo (sumando todos
-// los bloques del catálogo). Es la base para saber si hace falta repetir.
-function getPoolSizes(task) {
-  const reposo = task.bloques.reduce((sum, b) => sum + b.reposo.length, 0);
-  const activacion = task.bloques.reduce((sum, b) => sum + b.activacion.length, 0);
-  return { reposo, activacion };
+// Determina si, con esta configuración, en algún momento hay que "reciclar"
+// bloques completos (más ciclos que bloques reales) o repetir imágenes
+// dentro de un mismo bloque (más estímulos por bloque de los que ese bloque
+// tiene nativamente). Es la base para saber si el modo loop/random aplica.
+function computeRepeatNeeded(task, numCycles, stimuliPerBlock) {
+  const N = task.bloques.length;
+  if (numCycles > N) return true;
+  for (let cycle = 0; cycle < numCycles; cycle++) {
+    const blockIndex = cycle % N;
+    if (task.bloques[blockIndex].reposo.length < stimuliPerBlock) return true;
+  }
+  return false;
 }
 
 // ================== SELECCIÓN DE TAREA BASE: prellenar con el estándar ==================
@@ -105,7 +185,7 @@ taskSelect.addEventListener("change", () => {
 [numBlocksInput, blockDurationInput, stimuliPerBlockInput].forEach((input) => {
   input.addEventListener("input", recomputePreview);
 });
-repeatModeRadios.forEach((radio) => radio.addEventListener("change", recomputePreview));
+repeatModeRandomCheckbox.addEventListener("change", recomputePreview);
 
 // Recalcula la vista previa (tiempo por estímulo, tiempo total) y si hace
 // falta repetir imágenes, habilitando o no el selector loop/random.
@@ -125,22 +205,32 @@ function recomputePreview() {
 }
 
 // ================== MODO DE REPETICIÓN (loop / random) ==================
-// El selector solo se habilita cuando lo pedido excede las imágenes reales
-// disponibles; si cabe en el pool, no aplica y queda deshabilitado.
+// El checkbox solo se habilita cuando lo pedido excede las imágenes reales
+// disponibles; si cabe, no aplica y queda deshabilitado y sin marcar (loop).
 function updateRepeatModeAvailability(task, numBlocks, stimuliPerBlock) {
-  const pool = getPoolSizes(task);
-  const neededPerType = (numBlocks / 2) * stimuliPerBlock;
-  const repeatNeeded = neededPerType > pool.reposo || neededPerType > pool.activacion;
+  const numCycles = numBlocks / 2;
+  const repeatNeeded = computeRepeatNeeded(task, numCycles, stimuliPerBlock);
 
-  repeatModeRadios.forEach((radio) => (radio.disabled = !repeatNeeded));
+  repeatModeRandomCheckbox.disabled = !repeatNeeded;
+
+  if (!repeatNeeded) {
+    // Si ya no hace falta repetir, desmarcamos para que el comportamiento
+    // real siempre coincida con lo que dice el hint — sin esto, "random"
+    // elegido antes podía quedar marcado (aunque deshabilitado) y seguir
+    // mezclando imágenes sin que nadie lo notara.
+    repeatModeRandomCheckbox.checked = false;
+  }
+
+  const N = task.bloques.length;
   repeatModeHint.textContent = repeatNeeded
-    ? `Se necesitan ${neededPerType} imágenes por tipo y solo hay ${Math.min(pool.reposo, pool.activacion)}: elige cómo repetir.`
-    : "No aplica: hay suficientes imágenes para esta configuración.";
+    ? numCycles > N
+      ? `Se necesitan ${numCycles} bloques y esta tarea solo tiene ${N}: puedes aleatorizar el orden.`
+      : `Este bloque necesita ${stimuliPerBlock} imágenes y algunos solo tienen menos de forma nativa: puedes aleatorizar el orden.`
+    : "No aplica: cada bloque alcanza con sus propias imágenes.";
 }
 
 function getSelectedRepeatMode() {
-  const checked = document.querySelector('input[name="repeat-mode"]:checked');
-  return checked ? checked.value : "loop";
+  return repeatModeRandomCheckbox.checked ? "random" : "loop";
 }
 
 // ================== AGREGAR INSTANCIA A LA SECUENCIA ==================
@@ -181,28 +271,6 @@ function buildImagePath(task, blockNumber, typeChar, imageIndex, label) {
   return `images/${task.prefijo}/${task.prefijo}_b${blockNumber}_${typeChar}${imageIndex}${suffix}.${task.extension || "png"}`;
 }
 
-// Todas las imágenes reales de la tarea, en orden natural, separadas por
-// tipo (reposo / activación). Esta es la fuente de verdad para saber qué
-// existe realmente en disco, sin importar cuántos bloques pida el usuario.
-// Cada entrada trae también su label (0/1/null) para uso futuro (balance
-// positivo/negativo al aleatorizar).
-function buildImagePool(task) {
-  const reposo = [];
-  const activacion = [];
-  task.bloques.forEach((bloque, idx) => {
-    const cycle = idx + 1;
-    const reposoBlock = cycle * 2 - 1;
-    const activacionBlock = cycle * 2;
-    bloque.reposo.forEach((label, i) => {
-      reposo.push({ src: buildImagePath(task, reposoBlock, "r", i + 1, label), label });
-    });
-    bloque.activacion.forEach((label, i) => {
-      activacion.push({ src: buildImagePath(task, activacionBlock, "a", i + 1, label), label });
-    });
-  });
-  return { reposo, activacion };
-}
-
 function shuffle(array) {
   const result = [...array];
   for (let i = result.length - 1; i > 0; i--) {
@@ -212,41 +280,71 @@ function shuffle(array) {
   return result;
 }
 
-// Devuelve exactamente `count` imágenes tomadas de `pool`, repitiendo si
-// hace falta. "loop": el pool en su orden natural, una y otra vez.
-// "random": el pool barajado; si no alcanza, se vuelve a barajar (nunca se
-// repite una imagen dos veces seguidas solo por mala suerte del azar).
-function pickFromPool(pool, count, mode) {
-  if (pool.length === 0) return [];
-  const result = [];
-  while (result.length < count) {
-    result.push(...(mode === "random" ? shuffle(pool) : pool));
+// Arma la "ventana" de `count` imágenes de reposo y activación para un
+// bloque real. El pool ya NO es de toda la tarea: es por bloque. Si el
+// bloque no tiene suficientes imágenes propias, se completa corriendo hacia
+// los bloques siguientes (cíclicamente por toda la tarea) — nunca repite
+// dentro del mismo bloque mientras haya otro bloque del que tomar prestado.
+// reposo y activación siempre toman EXACTAMENTE los mismos bloques/índices,
+// así que su patrón positivo/negativo coincide antes de mezclar.
+function buildBlockWindow(task, startBlockIndex, count) {
+  const N = task.bloques.length;
+  const reposo = [];
+  const activacion = [];
+  let blockIndex = startBlockIndex;
+  let imgIndex = 0;
+
+  while (reposo.length < count) {
+    const bloque = task.bloques[blockIndex];
+    if (imgIndex >= bloque.reposo.length) {
+      blockIndex = (blockIndex + 1) % N;
+      imgIndex = 0;
+      continue;
+    }
+    const realBlockNumber = blockIndex + 1;
+    const fileBlockReposo = realBlockNumber * 2 - 1;
+    const fileBlockActivacion = realBlockNumber * 2;
+    const rLabel = bloque.reposo[imgIndex];
+    const aLabel = bloque.activacion[imgIndex];
+    reposo.push({ src: buildImagePath(task, fileBlockReposo, "r", imgIndex + 1, rLabel), label: rLabel });
+    activacion.push({ src: buildImagePath(task, fileBlockActivacion, "a", imgIndex + 1, aLabel), label: aLabel });
+    imgIndex++;
   }
-  return result.slice(0, count);
+
+  return { reposo, activacion };
+}
+
+// "loop": deja la ventana en su orden natural. "random": mezcla las
+// posiciones, pero con LA MISMA permutación para reposo y activación — así
+// la imagen que cae en la posición k de reposo y la que cae en la posición
+// k de activación siguen viniendo del mismo índice original, y su patrón
+// positivo/negativo sigue coincidiendo aunque el orden visual cambie.
+function shuffleWindow(window, mode) {
+  if (mode !== "random") return window;
+  const order = shuffle(window.reposo.map((_, i) => i));
+  return {
+    reposo: order.map((i) => window.reposo[i]),
+    activacion: order.map((i) => window.activacion[i]),
+  };
 }
 
 function buildSchedule(task, instance) {
-  const pool = buildImagePool(task);
   const numCycles = instance.numBlocks / 2;
-  const neededPerType = numCycles * instance.stimuliPerBlock;
+  const N = task.bloques.length;
   const perImageDuration = instance.blockDuration / instance.stimuliPerBlock;
-
-  const repeated = neededPerType > pool.reposo.length || neededPerType > pool.activacion.length;
-  const reposoImages = pickFromPool(pool.reposo, neededPerType, instance.repeatMode);
-  const activacionImages = pickFromPool(pool.activacion, neededPerType, instance.repeatMode);
+  const repeated = computeRepeatNeeded(task, numCycles, instance.stimuliPerBlock);
 
   const steps = [];
-  let r = 0;
-  let a = 0;
   for (let cycle = 1; cycle <= numCycles; cycle++) {
-    for (let i = 0; i < instance.stimuliPerBlock; i++) {
-      const img = reposoImages[r++];
+    const blockIndex = (cycle - 1) % N; // los bloques siempre rotan en orden: 1,2,3...N,1,2,3...
+    const window = shuffleWindow(buildBlockWindow(task, blockIndex, instance.stimuliPerBlock), instance.repeatMode);
+
+    window.reposo.forEach((img) => {
       steps.push({ type: "reposo", src: img.src, label: img.label, duration: perImageDuration, cycle });
-    }
-    for (let i = 0; i < instance.stimuliPerBlock; i++) {
-      const img = activacionImages[a++];
+    });
+    window.activacion.forEach((img) => {
       steps.push({ type: "activación", src: img.src, label: img.label, duration: perImageDuration, cycle });
-    }
+    });
   }
 
   const cumulativeStarts = [];
@@ -292,6 +390,15 @@ function moveInstance(li, direction) {
 
 function removeInstance(instanceId) {
   if (isInstanceCurrentlyPlaying(instanceId)) return;
+
+  // Si la que se borra es la que está en pantalla (pausada), la limpiamos
+  // de inmediato aquí mismo — no esperamos a que syncSequenceState() decida
+  // qué mostrar después, así nunca queda ni un instante la imagen/video de
+  // una tarea que ya no existe en la secuencia.
+  if (instanceId === currentInstanceId) {
+    resetStageToEmpty();
+  }
+
   sequence = sequence.filter((inst) => inst.instanceId !== instanceId);
   const li = sequenceList.querySelector(`.sequence-item[data-instance-id="${instanceId}"]`);
   if (li) li.remove();
@@ -307,14 +414,7 @@ function syncSequenceState() {
   updateSequenceUI();
 
   if (sequence.length === 0) {
-    currentInstanceId = null;
-    nowPlaying.hidden = true;
-    restScreen.hidden = true;
-    stageImage.hidden = true;
-    stageImage.src = "";
-    progressBarFilled.style.width = "0%";
-    stopPlayback();
-    [btnPlayPause, btnReset, btnSkipStep, btnExtendStep, btnFullscreen].forEach((b) => (b.disabled = true));
+    resetStageToEmpty();
     return;
   }
 
@@ -328,6 +428,27 @@ function syncSequenceState() {
   // En pausa (o sin nada reproduciéndose): el escenario siempre refleja
   // la primera tarea de la secuencia actual, sin importar cuál estaba antes.
   loadInstance(sequence[0].instanceId);
+}
+
+// Único punto que deja el escenario completamente limpio (sin instancia
+// activa). Detiene TODO lo que pueda estar sonando (imágenes o YouTube) y
+// oculta ambos escenarios — antes solo se detenía el tick de imágenes y el
+// video de YouTube podía quedar sonando de fondo con la pantalla en negro.
+function resetStageToEmpty() {
+  stageGeneration++; // invalida cualquier callback pendiente de una instancia anterior (ej. precarga en curso)
+  stopAnyPlayback();
+  currentInstanceId = null;
+  currentSegment = "images";
+  nowPlaying.hidden = true;
+  restScreen.hidden = true;
+  stageImage.hidden = true;
+  stageImage.src = "";
+  youtubeStage.hidden = true;
+  customControls.hidden = false;
+  progressBarFilled.style.width = "0%";
+  [btnPlayPause, btnReset, btnSkipStep, btnExtendStep, btnFullscreen].forEach((b) => (b.disabled = true));
+  btnPrevInstance.disabled = true;
+  btnNextInstance.disabled = true;
 }
 
 function updateProgressLabelPosition() {
@@ -359,29 +480,81 @@ function updateSequenceUI() {
   });
 }
 
+// ================== ESCENARIO: EXPLICATIVO vs IMÁGENES ==================
+function showExplainerStage() {
+  youtubeStage.hidden = false;
+  stageImage.hidden = true;
+  customControls.hidden = true;
+}
+
+function showImageStage() {
+  youtubeStage.hidden = true;
+  stageImage.hidden = false;
+  customControls.hidden = false;
+}
+
 // ================== CARGA Y REPRODUCCIÓN DE UNA INSTANCIA ==================
 function loadInstance(instanceId) {
+  const myGeneration = ++stageGeneration;
   currentInstanceId = instanceId;
   restScreen.hidden = true;
-  stopPlayback();
+  stopAnyPlayback();
 
   const instance = sequence.find((i) => i.instanceId === instanceId);
-  const index = sequence.indexOf(instance);
+  const explainerDef = resolveExplainerDef(instance.taskId);
+  const startWithExplainer = explainersEnabled && !!(explainerDef && explainerDef.explainerYoutubeId);
+  currentSegment = startWithExplainer ? "explainer" : "images";
 
-  currentInstanceName.textContent = instance.label;
-  progressLabel.textContent = `(${index + 1}/${sequence.length})`;
-  nowPlaying.hidden = false;
+  updateNowPlayingLabel();
+  updateNavButtonsState();
+  updateSequenceUI();
 
+  btnFullscreen.disabled = false; // no depende de la precarga de imágenes
   imagesPreloaded = false;
-  [btnPlayPause, btnReset, btnSkipStep, btnExtendStep, btnFullscreen].forEach((b) => (b.disabled = true));
+  pendingAutoStartAfterPreload = false;
+  [btnPlayPause, btnReset, btnSkipStep, btnExtendStep].forEach((b) => (b.disabled = true));
 
-  preloadImages(instance.schedule.steps, () => {
+  // Las imágenes se precargan en paralelo al explicativo (si lo hay), para
+  // que al terminar el video la secuencia arranque sin espera. Si para
+  // cuando termine de precargar ya se borró esta instancia o se cargó otra,
+  // "myGeneration" ya no coincide y el callback no toca nada.
+  preloadImages(instance.schedule.steps, (hasMissing) => {
+    if (myGeneration !== stageGeneration) return;
     imagesPreloaded = true;
-    [btnPlayPause, btnReset, btnFullscreen].forEach((b) => (b.disabled = false));
-    loadVisualForStep(instance, 0);
+    if (!hasMissing) updateNowPlayingLabel(); // restaura "(1/3)" si el aviso de precarga lo tapó
+
+    if (currentSegment === "images") {
+      [btnPlayPause, btnReset].forEach((b) => (b.disabled = false));
+      loadVisualForStep(instance, 0);
+    }
+    if (pendingAutoStartAfterPreload) {
+      pendingAutoStartAfterPreload = false;
+      loadVisualForStep(instance, 0);
+      startPlayback();
+    }
   });
 
-  updateSequenceUI();
+  if (startWithExplainer) {
+    showExplainerStage();
+    if (isYtPlayerReady) ytPlayer.cueVideoById(explainerDef.explainerYoutubeId);
+  } else {
+    showImageStage();
+  }
+}
+
+function updateNowPlayingLabel() {
+  const instance = getCurrentInstance();
+  const index = sequence.indexOf(instance);
+  const suffix = currentSegment === "explainer" ? " — video explicativo" : "";
+  currentInstanceName.textContent = instance ? instance.label + suffix : "—";
+  progressLabel.textContent = `(${index + 1}/${sequence.length})`;
+  nowPlaying.hidden = false;
+}
+
+function updateNavButtonsState() {
+  const index = sequence.findIndex((i) => i.instanceId === currentInstanceId);
+  btnPrevInstance.disabled = index <= 0;
+  btnNextInstance.disabled = index === -1 || index >= sequence.length - 1;
 }
 
 function preloadImages(steps, onDone) {
@@ -390,7 +563,7 @@ function preloadImages(steps, onDone) {
   let missingFiles = [];
   progressLabel.textContent = `Cargando imágenes... (0/${urls.length})`;
 
-  if (urls.length === 0) { onDone(); return; }
+  if (urls.length === 0) { onDone(false); return; }
 
   urls.forEach((url) => {
     const img = new Image();
@@ -412,7 +585,7 @@ function preloadImages(steps, onDone) {
       } else {
         progressLabel.textContent = "";
       }
-      onDone();
+      onDone(missingFiles.length > 0);
     }
   }
 }
@@ -430,9 +603,84 @@ function getCurrentInstance() {
   return sequence.find((i) => i.instanceId === currentInstanceId);
 }
 
+// ================== NAVEGAR ENTRE INSTANCIAS (independiente de reproducción) ==================
+btnPrevInstance.addEventListener("click", () => {
+  const index = sequence.findIndex((i) => i.instanceId === currentInstanceId);
+  if (index > 0) loadInstance(sequence[index - 1].instanceId);
+});
+
+btnNextInstance.addEventListener("click", () => {
+  const index = sequence.findIndex((i) => i.instanceId === currentInstanceId);
+  if (index !== -1 && index < sequence.length - 1) loadInstance(sequence[index + 1].instanceId);
+});
+
+// ================== REPRODUCTOR DE YOUTUBE (solo para explicativos) ==================
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player("youtube-player-inv", {
+    height: "100%",
+    width: "100%",
+    playerVars: {
+      controls: 1,
+      rel: 0,
+      modestbranding: 1,
+      iv_load_policy: 3,
+      cc_load_policy: 0,
+    },
+    events: { onReady: onYtPlayerReady, onStateChange: onYtPlayerStateChange, onError: onYtPlayerError },
+  });
+}
+
+function onYtPlayerReady() {
+  isYtPlayerReady = true;
+  if (currentSegment === "explainer") {
+    const instance = getCurrentInstance();
+    const def = instance && resolveExplainerDef(instance.taskId);
+    if (def) ytPlayer.cueVideoById(def.explainerYoutubeId);
+  }
+}
+
+function onYtPlayerError(event) {
+  console.error("YouTube error (explicativo), code:", event.data);
+  currentInstanceName.textContent = "⚠ Error al cargar el video explicativo (código " + event.data + ")";
+}
+
+function onYtPlayerStateChange(event) {
+  if (event.data === YT.PlayerState.PLAYING) {
+    isPlaying = true;
+    updateSequenceUI();
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    isPlaying = false;
+    updateSequenceUI();
+  } else if (event.data === YT.PlayerState.ENDED) {
+    finishExplainer();
+  }
+}
+
+// El explicativo terminó: pasa directo a la secuencia de imágenes, sin
+// pantalla intermedia. Si las imágenes ya están listas, arranca de una vez
+// (comportamiento "fluido"); si no, queda pendiente y arranca sola en
+// cuanto termine de precargar.
+function finishExplainer() {
+  const instance = getCurrentInstance();
+  if (!instance) return;
+  currentSegment = "images";
+  isPlaying = false;
+  showImageStage();
+  updateNowPlayingLabel();
+
+  if (imagesPreloaded) {
+    [btnPlayPause, btnReset].forEach((b) => (b.disabled = false));
+    loadVisualForStep(instance, 0);
+    startPlayback();
+  } else {
+    pendingAutoStartAfterPreload = true;
+  }
+}
+
+
 // ================== CONTROLES DE REPRODUCCIÓN ==================
 btnPlayPause.addEventListener("click", () => {
-  if (!imagesPreloaded) return;
+  if (currentSegment !== "images" || !imagesPreloaded) return;
   isPlaying ? pausePlayback() : startPlayback();
 });
 
@@ -466,6 +714,14 @@ function stopPlayback() {
   elapsedAtPauseMs = 0;
   btnSkipStep.disabled = true;
   btnExtendStep.disabled = true;
+}
+
+// Detiene cualquier mecanismo de reproducción activo (el tick de imágenes o
+// el video de YouTube), sin importar en qué segmento esté la instancia que
+// se está dejando atrás. Se llama siempre al cambiar de instancia.
+function stopAnyPlayback() {
+  stopPlayback();
+  if (isYtPlayerReady) ytPlayer.stopVideo();
 }
 
 btnReset.addEventListener("click", () => {

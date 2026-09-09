@@ -317,7 +317,8 @@ body {
   overflow: hidden;
 }
 
-#youtube-player {
+#youtube-player,
+#youtube-player-inv {
   position: absolute;
   top: 0;
   left: 0;
@@ -467,23 +468,6 @@ body {
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.85rem;
-}
-
-.mode-label {
-  color: #556;
-  font-weight: 600;
-}
-
-.mode-option {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  cursor: pointer;
-}
-
-.mode-option input[type="radio"] {
-  accent-color: var(--color-primary);
-  cursor: pointer;
 }
 
 .params-grid {

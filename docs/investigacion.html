@@ -34,6 +34,7 @@
         </div>
 
         <div class="player-section" id="stage-container">
+          <div id="youtube-player-inv" hidden></div>
           <img id="stage-image" class="stage-image" alt="Imagen de estímulo" hidden>
 
           <div class="rest-screen" id="rest-screen-inv" hidden>
@@ -54,10 +55,35 @@
           </div>
         </div>
 
+        <div class="task-nav-bar">
+          <button id="btn-prev-instance" class="btn-secondary" disabled title="Instancia anterior">⏮ Anterior</button>
+          <button id="btn-next-instance" class="btn-secondary" disabled title="Siguiente instancia">Siguiente
+            ⏭</button>
+        </div>
+
       </div>
 
       <!-- Panel derecho: constructor de instancias + secuencia -->
       <div class="panel builder-panel">
+        <div class="settings-row">
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-explainers-inv" checked>
+            Videos explicativos
+          </label>
+
+          <div class="language-selector" id="language-selector-inv">
+            <span class="language-label">Idioma:</span>
+            <button type="button" class="language-btn active" data-lang="es">Español</button>
+            <button type="button" class="language-btn" data-lang="en">English</button>
+          </div>
+
+          <div class="handedness-selector" id="handedness-selector-inv">
+            <span class="handedness-label">Lateralidad:</span>
+            <button type="button" class="handedness-btn active" data-hand="diestro">Diestro</button>
+            <button type="button" class="handedness-btn" data-hand="zurdo">Zurdo</button>
+          </div>
+        </div>
+
         <h3>Configurar tarea</h3>
 
         <div class="tasks-dropdown">
@@ -85,14 +111,9 @@
         </div>
 
         <div class="mode-selector" id="repeat-mode-group">
-          <span class="mode-label">Si faltan imágenes, repetir como:</span>
-          <label class="mode-option">
-            <input type="radio" name="repeat-mode" value="loop" checked disabled>
-            Loop (repetir la misma estructura)
-          </label>
-          <label class="mode-option">
-            <input type="radio" name="repeat-mode" value="random" disabled>
-            Random (mezclar; reposo y activación nunca se mezclan entre sí)
+          <label class="toggle-switch">
+            <input type="checkbox" id="repeat-mode-random" disabled>
+            Aleatorizar (si faltan imágenes, mezclar en vez de repetir en orden)
           </label>
           <p class="hint" id="repeat-mode-hint">No aplica: hay suficientes imágenes para esta configuración.</p>
         </div>
@@ -115,6 +136,7 @@
     </div>
   </section>
 
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script src="js/investigacion.js"></script>
 </body>
 
