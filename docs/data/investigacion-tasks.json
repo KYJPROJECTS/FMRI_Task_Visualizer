@@ -4,28 +4,49 @@
       "id": "lh",
       "title": "Tarea de lenguaje historia",
       "prefijo": "lh",
-      "duracionBloque": 40,
+      "duracionEstandarBloque": 20,
       "extension": "png",
+      "standardNumBlocks": 10,
       "bloques": [
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         },
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         },
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         },
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         },
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         }
       ]
     },
@@ -33,28 +54,109 @@
       "id": "lvv",
       "title": "Tarea de lenguaje visoverbal",
       "prefijo": "lvv",
-      "duracionBloque": 60,
+      "duracionEstandarBloque": 30,
       "extension": "png",
+      "standardNumBlocks": 10,
       "bloques": [
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          "activacion": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1
+          ]
         },
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            1,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0
+          ],
+          "activacion": [
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0
+          ]
         },
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1
+          ],
+          "activacion": [
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1
+          ]
         },
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          "activacion": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0
+          ]
         },
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0
+          ],
+          "activacion": [
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0
+          ]
         }
       ]
     },
@@ -62,28 +164,139 @@
       "id": "menv",
       "title": "Tarea de memoria episódica no verbal",
       "prefijo": "menv",
-      "duracionBloque": 40,
+      "duracionEstandarBloque": 20,
       "extension": "png",
+      "standardNumBlocks": 10,
       "bloques": [
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1
+          ],
+          "activacion": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1
+          ]
         },
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0
+          ],
+          "activacion": [
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0
+          ]
         },
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1
+          ],
+          "activacion": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1
+          ]
         },
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            1,
+            0,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0
+          ],
+          "activacion": [
+            1,
+            0,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0
+          ]
         },
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "activacion": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1
+          ]
         }
       ]
     },
@@ -91,20 +304,57 @@
       "id": "mev",
       "title": "Tarea de memoria episódica verbal",
       "prefijo": "mev",
-      "duracionBloque": 40,
+      "duracionEstandarBloque": 20,
       "extension": "png",
+      "standardNumBlocks": 6,
       "bloques": [
         {
-          "activacion": 5,
-          "reposo": 5
+          "reposo": [
+            0,
+            1,
+            1,
+            0,
+            1
+          ],
+          "activacion": [
+            0,
+            1,
+            1,
+            0,
+            1
+          ]
         },
         {
-          "activacion": 5,
-          "reposo": 5
+          "reposo": [
+            0,
+            0,
+            0,
+            1,
+            0
+          ],
+          "activacion": [
+            0,
+            0,
+            0,
+            1,
+            1
+          ]
         },
         {
-          "activacion": 5,
-          "reposo": 5
+          "reposo": [
+            0,
+            0,
+            0,
+            1,
+            1
+          ],
+          "activacion": [
+            0,
+            0,
+            0,
+            1,
+            1
+          ]
         }
       ]
     },
@@ -112,46 +362,19 @@
       "id": "muni",
       "title": "Tarea motora unilateral",
       "prefijo": "muni",
-      "duracionBloque": 40,
+      "duracionEstandarBloque": 20,
       "extension": "png",
+      "standardNumBlocks": 10,
       "bloques": [
         {
-          "activacion": 1,
-          "reposo": 1
-        },
-        {
-          "activacion": 1,
-          "reposo": 1
-        },
-        {
-          "activacion": 1,
-          "reposo": 1
-        },
-        {
-          "activacion": 1,
-          "reposo": 1
-        },
-        {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            0
+          ],
+          "activacion": [
+            1
+          ]
         }
       ]
-    },
-    {
-      "id": "menv",
-      "title": "Tarea de memoria episódica no verbal",
-      "prefijo": "MENV",
-      "duracionBloque": 20,
-      "extension": "jpg",
-      "ordenAleatorio": true,
-      "bloques": [
-        { "cantidadImagenes": 10 },
-        { "cantidadImagenes": 10 },
-        { "cantidadImagenes": 10 },
-        { "cantidadImagenes": 10 },
-        { "cantidadImagenes": 10 }
-      ]
     }
-    
   ]
 }
