@@ -6,26 +6,47 @@
       "prefijo": "lh",
       "duracionEstandarBloque": 20,
       "extension": "png",
+      "standardNumBlocks": 10,
       "bloques": [
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         },
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         },
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         },
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         },
         {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            null
+          ],
+          "activacion": [
+            null
+          ]
         }
       ]
     },
@@ -35,26 +56,107 @@
       "prefijo": "lvv",
       "duracionEstandarBloque": 30,
       "extension": "png",
+      "standardNumBlocks": 10,
       "bloques": [
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          "activacion": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1
+          ]
         },
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            1,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0
+          ],
+          "activacion": [
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0
+          ]
         },
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1
+          ],
+          "activacion": [
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1
+          ]
         },
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          "activacion": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0
+          ]
         },
         {
-          "activacion": 7,
-          "reposo": 7
+          "reposo": [
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0
+          ],
+          "activacion": [
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0
+          ]
         }
       ]
     },
@@ -64,26 +166,137 @@
       "prefijo": "menv",
       "duracionEstandarBloque": 20,
       "extension": "png",
+      "standardNumBlocks": 10,
       "bloques": [
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1
+          ],
+          "activacion": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1
+          ]
         },
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0
+          ],
+          "activacion": [
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0
+          ]
         },
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1
+          ],
+          "activacion": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1
+          ]
         },
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            1,
+            0,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0
+          ],
+          "activacion": [
+            1,
+            0,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0
+          ]
         },
         {
-          "activacion": 10,
-          "reposo": 10
+          "reposo": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "activacion": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1
+          ]
         }
       ]
     },
@@ -93,18 +306,55 @@
       "prefijo": "mev",
       "duracionEstandarBloque": 20,
       "extension": "png",
+      "standardNumBlocks": 6,
       "bloques": [
         {
-          "activacion": 5,
-          "reposo": 5
+          "reposo": [
+            0,
+            1,
+            1,
+            0,
+            1
+          ],
+          "activacion": [
+            0,
+            1,
+            1,
+            0,
+            1
+          ]
         },
         {
-          "activacion": 5,
-          "reposo": 5
+          "reposo": [
+            0,
+            0,
+            0,
+            1,
+            0
+          ],
+          "activacion": [
+            0,
+            0,
+            0,
+            1,
+            1
+          ]
         },
         {
-          "activacion": 5,
-          "reposo": 5
+          "reposo": [
+            0,
+            0,
+            0,
+            1,
+            1
+          ],
+          "activacion": [
+            0,
+            0,
+            0,
+            1,
+            1
+          ]
         }
       ]
     },
@@ -114,27 +364,15 @@
       "prefijo": "muni",
       "duracionEstandarBloque": 20,
       "extension": "png",
-      "reuseImages": true,
+      "standardNumBlocks": 10,
       "bloques": [
         {
-          "activacion": 1,
-          "reposo": 1
-        },
-        {
-          "activacion": 1,
-          "reposo": 1
-        },
-        {
-          "activacion": 1,
-          "reposo": 1
-        },
-        {
-          "activacion": 1,
-          "reposo": 1
-        },
-        {
-          "activacion": 1,
-          "reposo": 1
+          "reposo": [
+            0
+          ],
+          "activacion": [
+            1
+          ]
         }
       ]
     }

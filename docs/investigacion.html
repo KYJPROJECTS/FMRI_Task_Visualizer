@@ -84,6 +84,19 @@
           </div>
         </div>
 
+        <div class="mode-selector" id="repeat-mode-group">
+          <span class="mode-label">Si faltan imágenes, repetir como:</span>
+          <label class="mode-option">
+            <input type="radio" name="repeat-mode" value="loop" checked disabled>
+            Loop (repetir la misma estructura)
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="repeat-mode" value="random" disabled>
+            Random (mezclar; reposo y activación nunca se mezclan entre sí)
+          </label>
+          <p class="hint" id="repeat-mode-hint">No aplica: hay suficientes imágenes para esta configuración.</p>
+        </div>
+
         <ul class="task-list" id="preview-stats-list">
           <li><span class="task-title">Tiempo por estímulo</span><span id="stat-stimulus-time"
               class="task-duration">—</span></li>

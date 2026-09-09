@@ -18,6 +18,8 @@ const numBlocksHint = document.getElementById("num-blocks-hint");
 const blockDurationInput = document.getElementById("block-duration-input");
 const stimuliPerBlockInput = document.getElementById("stimuli-per-block-input");
 const stimuliPerBlockHint = document.getElementById("stimuli-per-block-hint");
+const repeatModeRadios = document.querySelectorAll('input[name="repeat-mode"]');
+const repeatModeHint = document.getElementById("repeat-mode-hint");
 const statStimulusTime = document.getElementById("stat-stimulus-time");
 const statTaskTotalTime = document.getElementById("stat-task-total-time");
 const btnAddInstance = document.getElementById("btn-add-instance");
@@ -63,11 +65,12 @@ function formatSeconds(totalSeconds) {
   return rounded.toFixed(2) + "s";
 }
 
-function getTaskLimits(task) {
-  const maxCycles = task.bloques.length;
-  const maxBlocksReal = maxCycles * 2;
-  const maxStimuliPerBlock = Math.min(...task.bloques.map((b) => Math.min(b.activacion, b.reposo)));
-  return { maxCycles, maxBlocksReal, maxStimuliPerBlock };
+// Cuenta cuántas imágenes reales existen en total por tipo (sumando todos
+// los bloques del catálogo). Es la base para saber si hace falta repetir.
+function getPoolSizes(task) {
+  const reposo = task.bloques.reduce((sum, b) => sum + b.reposo.length, 0);
+  const activacion = task.bloques.reduce((sum, b) => sum + b.activacion.length, 0);
+  return { reposo, activacion };
 }
 
 // ================== SELECCIÓN DE TAREA BASE: prellenar con el estándar ==================
@@ -75,44 +78,39 @@ taskSelect.addEventListener("change", () => {
   const task = allTasks.find((t) => t.id === taskSelect.value);
   if (!task) return;
 
-  const { maxBlocksReal, maxStimuliPerBlock } = getTaskLimits(task);
-  const standardBlocks = Math.min(10, maxBlocksReal); // estándar: 10 bloques (5 ciclos), acotado a lo disponible
+  // standardNumBlocks es la duración clínica estándar de la tarea (puede no
+  // coincidir con la cantidad de imágenes físicas reales, ej. muni: 5
+  // bloques nominales de 20s pero solo 1 imagen real por tipo que se repite).
+  const standardBlocks = task.standardNumBlocks;
+  const standardStimuli = Math.min(...task.bloques.map((b) => Math.min(b.activacion.length, b.reposo.length)));
 
   numBlocksInput.disabled = false;
   numBlocksInput.min = 6;
-  numBlocksInput.max = maxBlocksReal;
   numBlocksInput.step = 2;
   numBlocksInput.value = standardBlocks;
-  numBlocksHint.textContent = `Disponible: entre 6 y ${maxBlocksReal} bloques (siempre en pares reposo+activación).`;
+  numBlocksHint.textContent = `Estándar clínico: ${standardBlocks} bloques. Puedes pedir más: se repetirán según el modo elegido abajo.`;
 
   blockDurationInput.disabled = false;
   blockDurationInput.value = task.duracionEstandarBloque;
 
-  const isFixedStimuli = maxStimuliPerBlock === 1;
-  stimuliPerBlockInput.disabled = isFixedStimuli;
+  stimuliPerBlockInput.disabled = false;
   stimuliPerBlockInput.min = 1;
-  stimuliPerBlockInput.max = maxStimuliPerBlock;
-  stimuliPerBlockInput.value = maxStimuliPerBlock; // estándar: usar todas las imágenes preparadas
-  stimuliPerBlockHint.textContent = getStimuliPerBlockHintText(isFixedStimuli);
+  stimuliPerBlockInput.value = standardStimuli;
+  stimuliPerBlockHint.textContent = `Esta tarea tiene ${standardStimuli} imagen(es) por bloque de forma nativa.`;
 
   btnAddInstance.disabled = false;
   recomputePreview();
 });
 
-function getStimuliPerBlockHintText(isFixed) {
-  return isFixed
-    ? "Esta tarea usa un solo estímulo por bloque (no configurable)."
-    : "";
-}
-
 [numBlocksInput, blockDurationInput, stimuliPerBlockInput].forEach((input) => {
   input.addEventListener("input", recomputePreview);
 });
+repeatModeRadios.forEach((radio) => radio.addEventListener("change", recomputePreview));
 
-// Recalcula solo la vista previa (tiempo por estímulo, tiempo total).
-// Sin advertencias ni bloqueos: los límites min/max de cada input ya
-// evitan que se escriban valores fuera de lo disponible.
+// Recalcula la vista previa (tiempo por estímulo, tiempo total) y si hace
+// falta repetir imágenes, habilitando o no el selector loop/random.
 function recomputePreview() {
+  const task = allTasks.find((t) => t.id === taskSelect.value);
   const numBlocks = parseInt(numBlocksInput.value, 10) || 0;
   const blockDuration = parseFloat(blockDurationInput.value) || 0;
   const stimuliPerBlock = parseInt(stimuliPerBlockInput.value, 10) || 1;
@@ -122,6 +120,27 @@ function recomputePreview() {
 
   statStimulusTime.textContent = formatSeconds(stimulusSeconds);
   statTaskTotalTime.textContent = formatSeconds(totalSeconds);
+
+  if (task) updateRepeatModeAvailability(task, numBlocks, stimuliPerBlock);
+}
+
+// ================== MODO DE REPETICIÓN (loop / random) ==================
+// El selector solo se habilita cuando lo pedido excede las imágenes reales
+// disponibles; si cabe en el pool, no aplica y queda deshabilitado.
+function updateRepeatModeAvailability(task, numBlocks, stimuliPerBlock) {
+  const pool = getPoolSizes(task);
+  const neededPerType = (numBlocks / 2) * stimuliPerBlock;
+  const repeatNeeded = neededPerType > pool.reposo || neededPerType > pool.activacion;
+
+  repeatModeRadios.forEach((radio) => (radio.disabled = !repeatNeeded));
+  repeatModeHint.textContent = repeatNeeded
+    ? `Se necesitan ${neededPerType} imágenes por tipo y solo hay ${Math.min(pool.reposo, pool.activacion)}: elige cómo repetir.`
+    : "No aplica: hay suficientes imágenes para esta configuración.";
+}
+
+function getSelectedRepeatMode() {
+  const checked = document.querySelector('input[name="repeat-mode"]:checked');
+  return checked ? checked.value : "loop";
 }
 
 // ================== AGREGAR INSTANCIA A LA SECUENCIA ==================
@@ -132,55 +151,101 @@ btnAddInstance.addEventListener("click", () => {
   const numBlocks = parseInt(numBlocksInput.value, 10);
   const blockDuration = parseFloat(blockDurationInput.value);
   const stimuliPerBlock = parseInt(stimuliPerBlockInput.value, 10);
+  const repeatMode = getSelectedRepeatMode();
 
   const instance = {
     instanceId: `inst-${nextInstanceNumber++}`,
     taskId: task.id,
-    label: `${task.title} — ${numBlocks} bloques × ${blockDuration}s`,
     numBlocks,
     blockDuration,
     stimuliPerBlock,
+    repeatMode,
   };
   instance.schedule = buildSchedule(task, instance);
+
+  const repeatSuffix = instance.schedule.repeated ? ` (${repeatMode})` : "";
+  instance.label = `${task.title} — ${numBlocks} bloques × ${blockDuration}s${repeatSuffix}`;
 
   sequence.push(instance);
   renderSequenceItem(instance);
   syncSequenceState();
 });
 
-// ================== CONSTRUCCIÓN DEL SCHEDULE (sin jitter: duración fija siempre) ==================
-function buildImagePath(taskId, prefijo, cycle, typeChar, imageIndex, extension, reuseImages) {
-  const effectiveCycle = reuseImages ? 1 : cycle;
-  const fileBlock = typeChar === "r" ? effectiveCycle * 2 - 1 : effectiveCycle * 2;
-  return `images/${prefijo}/${prefijo}_b${fileBlock}_${typeChar}${imageIndex}.${extension}`;
+// ================== CONSTRUCCIÓN DEL SCHEDULE ==================
+// Las imágenes de lvv/menv/mev/muni tienen un sufijo _0 (negativo, el
+// paciente permanece quieto) o _1 (positivo, el paciente mueve el dedo).
+// lh no está clasificada todavía: su label es null y el nombre queda sin
+// sufijo, igual que antes.
+function buildImagePath(task, blockNumber, typeChar, imageIndex, label) {
+  const suffix = label === null || label === undefined ? "" : `_${label}`;
+  return `images/${task.prefijo}/${task.prefijo}_b${blockNumber}_${typeChar}${imageIndex}${suffix}.${task.extension || "png"}`;
+}
+
+// Todas las imágenes reales de la tarea, en orden natural, separadas por
+// tipo (reposo / activación). Esta es la fuente de verdad para saber qué
+// existe realmente en disco, sin importar cuántos bloques pida el usuario.
+// Cada entrada trae también su label (0/1/null) para uso futuro (balance
+// positivo/negativo al aleatorizar).
+function buildImagePool(task) {
+  const reposo = [];
+  const activacion = [];
+  task.bloques.forEach((bloque, idx) => {
+    const cycle = idx + 1;
+    const reposoBlock = cycle * 2 - 1;
+    const activacionBlock = cycle * 2;
+    bloque.reposo.forEach((label, i) => {
+      reposo.push({ src: buildImagePath(task, reposoBlock, "r", i + 1, label), label });
+    });
+    bloque.activacion.forEach((label, i) => {
+      activacion.push({ src: buildImagePath(task, activacionBlock, "a", i + 1, label), label });
+    });
+  });
+  return { reposo, activacion };
+}
+
+function shuffle(array) {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+// Devuelve exactamente `count` imágenes tomadas de `pool`, repitiendo si
+// hace falta. "loop": el pool en su orden natural, una y otra vez.
+// "random": el pool barajado; si no alcanza, se vuelve a barajar (nunca se
+// repite una imagen dos veces seguidas solo por mala suerte del azar).
+function pickFromPool(pool, count, mode) {
+  if (pool.length === 0) return [];
+  const result = [];
+  while (result.length < count) {
+    result.push(...(mode === "random" ? shuffle(pool) : pool));
+  }
+  return result.slice(0, count);
 }
 
 function buildSchedule(task, instance) {
+  const pool = buildImagePool(task);
   const numCycles = instance.numBlocks / 2;
-  const steps = [];
+  const neededPerType = numCycles * instance.stimuliPerBlock;
+  const perImageDuration = instance.blockDuration / instance.stimuliPerBlock;
 
+  const repeated = neededPerType > pool.reposo.length || neededPerType > pool.activacion.length;
+  const reposoImages = pickFromPool(pool.reposo, neededPerType, instance.repeatMode);
+  const activacionImages = pickFromPool(pool.activacion, neededPerType, instance.repeatMode);
+
+  const steps = [];
+  let r = 0;
+  let a = 0;
   for (let cycle = 1; cycle <= numCycles; cycle++) {
-    const restPerImage = instance.blockDuration / instance.stimuliPerBlock;
-    for (let i = 1; i <= instance.stimuliPerBlock; i++) {
-      steps.push({
-        type: "reposo",
-        src: buildImagePath(task.id, task.prefijo, cycle, "r", i, task.extension || "png", task.reuseImages),
-        duration: restPerImage,
-        cycle,
-        imgIndex: i,
-        imgCount: instance.stimuliPerBlock,
-      });
+    for (let i = 0; i < instance.stimuliPerBlock; i++) {
+      const img = reposoImages[r++];
+      steps.push({ type: "reposo", src: img.src, label: img.label, duration: perImageDuration, cycle });
     }
-    const actPerImage = instance.blockDuration / instance.stimuliPerBlock; // misma duración que reposo, siempre
-    for (let i = 1; i <= instance.stimuliPerBlock; i++) {
-      steps.push({
-        type: "activación",
-        src: buildImagePath(task.id, task.prefijo, cycle, "a", i, task.extension || "png", task.reuseImages),
-        duration: actPerImage,
-        cycle,
-        imgIndex: i,
-        imgCount: instance.stimuliPerBlock,
-      });
+    for (let i = 0; i < instance.stimuliPerBlock; i++) {
+      const img = activacionImages[a++];
+      steps.push({ type: "activación", src: img.src, label: img.label, duration: perImageDuration, cycle });
     }
   }
 
@@ -191,7 +256,7 @@ function buildSchedule(task, instance) {
     acc += step.duration * 1000;
   });
 
-  return { steps, cumulativeStarts, totalTaskMs: acc };
+  return { steps, cumulativeStarts, totalTaskMs: acc, repeated };
 }
 
 // ================== SECUENCIA: RENDER, REORDENAR, QUITAR ==================
