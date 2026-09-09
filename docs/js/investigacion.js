@@ -44,6 +44,7 @@ const btnAddInstance = document.getElementById("btn-add-instance");
 const sequenceList = document.getElementById("sequence-list-inv");
 const sequenceEmptyHint = document.getElementById("sequence-empty-hint-inv");
 const sequenceTotalLabel = document.getElementById("sequence-total-duration-inv");
+const btnDownloadReport = document.getElementById("btn-download-report");
 
 const nowPlaying = document.getElementById("now-playing-inv");
 const currentInstanceName = document.getElementById("current-instance-name-inv");
@@ -178,6 +179,9 @@ taskSelect.addEventListener("change", () => {
   stimuliPerBlockInput.value = standardStimuli;
   stimuliPerBlockHint.textContent = `Esta tarea tiene ${standardStimuli} imagen(es) por bloque de forma nativa.`;
 
+  repeatModeRandomCheckbox.disabled = false;
+  repeatModeRandomCheckbox.checked = false; // cada tarea nueva arranca en loop por defecto
+
   btnAddInstance.disabled = false;
   recomputePreview();
 });
@@ -207,26 +211,19 @@ function recomputePreview() {
 // ================== MODO DE REPETICIÓN (loop / random) ==================
 // El checkbox solo se habilita cuando lo pedido excede las imágenes reales
 // disponibles; si cabe, no aplica y queda deshabilitado y sin marcar (loop).
+// El checkbox de aleatorizar ahora está siempre disponible, se necesite o
+// no repetir/pedir prestado — así el técnico puede mezclar el orden de las
+// imágenes dentro de cada bloque aunque haya exactamente las que hacen falta.
 function updateRepeatModeAvailability(task, numBlocks, stimuliPerBlock) {
   const numCycles = numBlocks / 2;
   const repeatNeeded = computeRepeatNeeded(task, numCycles, stimuliPerBlock);
-
-  repeatModeRandomCheckbox.disabled = !repeatNeeded;
-
-  if (!repeatNeeded) {
-    // Si ya no hace falta repetir, desmarcamos para que el comportamiento
-    // real siempre coincida con lo que dice el hint — sin esto, "random"
-    // elegido antes podía quedar marcado (aunque deshabilitado) y seguir
-    // mezclando imágenes sin que nadie lo notara.
-    repeatModeRandomCheckbox.checked = false;
-  }
-
   const N = task.bloques.length;
+
   repeatModeHint.textContent = repeatNeeded
     ? numCycles > N
-      ? `Se necesitan ${numCycles} bloques y esta tarea solo tiene ${N}: puedes aleatorizar el orden.`
-      : `Este bloque necesita ${stimuliPerBlock} imágenes y algunos solo tienen menos de forma nativa: puedes aleatorizar el orden.`
-    : "No aplica: cada bloque alcanza con sus propias imágenes.";
+      ? `Se necesitan ${numCycles} bloques y esta tarea solo tiene ${N}: se repiten/mezclan bloques enteros.`
+      : `Este bloque necesita ${stimuliPerBlock} imágenes y algunos solo tienen menos de forma nativa: se pide prestado del siguiente bloque.`
+    : "No hace falta repetir nada, pero puedes aleatorizar el orden dentro de cada bloque igual.";
 }
 
 function getSelectedRepeatMode() {
@@ -410,6 +407,7 @@ function syncSequenceState() {
   sequence.sort((a, b) => orderedIds.indexOf(a.instanceId) - orderedIds.indexOf(b.instanceId));
 
   sequenceEmptyHint.hidden = sequence.length > 0;
+  btnDownloadReport.disabled = sequence.length === 0;
   updateSequenceTotalLabel();
   updateSequenceUI();
 
@@ -464,6 +462,82 @@ function updateSequenceTotalLabel() {
   const totalSeconds = sequence.reduce((sum, inst) => sum + inst.schedule.totalTaskMs / 1000, 0);
   sequenceTotalLabel.innerHTML = `Duración total estimada: <strong>${formatSeconds(totalSeconds)}</strong>`;
 }
+
+// ================== REPORTE DE LA SESIÓN ==================
+// Genera un .txt con lo que REALMENTE se programó para cada instancia
+// (instance.schedule), no con los datos de catálogo — así el reporte
+// refleja fielmente qué imagen sonó en qué orden, incluso si hubo
+// aleatorización o préstamo de imágenes entre bloques.
+function buildSessionReport() {
+  const lines = [];
+  const now = new Date();
+  const totalSeconds = sequence.reduce((sum, inst) => sum + inst.schedule.totalTaskMs / 1000, 0);
+
+  lines.push("REPORTE DE SESIÓN — FMRI Task Visualizer (Investigación)");
+  lines.push(`Generado: ${now.toLocaleString("es-CO")}`);
+  lines.push(`Duración total de la sesión: ${formatSeconds(totalSeconds)}`);
+  lines.push("");
+  lines.push(`Videos explicativos: ${explainersEnabled ? "activados" : "desactivados"}`);
+  lines.push(`Idioma: ${language === "en" ? "English" : "Español"}`);
+  lines.push(`Lateralidad: ${handedness === "zurdo" ? "Zurdo" : "Diestro"}`);
+  lines.push("");
+  lines.push("Orden de tareas:");
+  sequence.forEach((inst, i) => lines.push(`  ${i + 1}. ${inst.label}`));
+  lines.push("");
+  lines.push("=".repeat(70));
+
+  sequence.forEach((inst, i) => {
+    const task = allTasks.find((t) => t.id === inst.taskId);
+    const numCycles = inst.numBlocks / 2;
+
+    lines.push("");
+    lines.push(`INSTANCIA ${i + 1}: ${task ? task.title : inst.taskId} (${inst.taskId})`);
+    lines.push(
+      `Bloques: ${inst.numBlocks} (${numCycles} ciclos) | Duración por bloque: ${inst.blockDuration}s | ` +
+      `Estímulos por bloque: ${inst.stimuliPerBlock} | Modo: ${inst.repeatMode}` +
+      (inst.schedule.repeated ? " (se usó repetición/préstamo entre bloques)" : "")
+    );
+    lines.push(`Tiempo por estímulo: ${formatSeconds(inst.blockDuration / inst.stimuliPerBlock)}`);
+    lines.push(`Duración total de esta tarea: ${formatSeconds(inst.schedule.totalTaskMs / 1000)}`);
+
+    ["reposo", "activación"].forEach((tipo) => {
+      const stepsOfType = inst.schedule.steps.filter((s) => s.type === tipo);
+      lines.push("");
+      lines.push(`--- ${tipo.toUpperCase()} ---`);
+      lines.push("Imágenes por bloque, en el orden en que se muestran:");
+      const vectorByBlock = [];
+      for (let c = 1; c <= numCycles; c++) {
+        const stepsOfCycle = stepsOfType.filter((s) => s.cycle === c);
+        const names = stepsOfCycle.map((s) => s.src.split("/").pop());
+        lines.push(`  Bloque ${c}: ${names.join(", ")}`);
+        vectorByBlock.push(stepsOfCycle.map((s) => (s.label === null || s.label === undefined ? "-" : s.label)).join(""));
+      }
+      lines.push("");
+      lines.push('Vector (0=negativo, 1=positivo, "-"=sin clasificar):');
+      lines.push(`  ${vectorByBlock.join(" ")}`);
+    });
+
+    lines.push("");
+    lines.push("-".repeat(70));
+  });
+
+  return lines.join("\n");
+}
+
+btnDownloadReport.addEventListener("click", () => {
+  const content = buildSessionReport();
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `sesion-investigacion-${stamp}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
 
 function isInstanceCurrentlyPlaying(instanceId) {
   return isPlaying && instanceId === currentInstanceId;
